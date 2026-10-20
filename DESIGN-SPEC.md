@@ -1,4 +1,4 @@
-# Tasarım Spesifikasyonu — SİNYAL (sinyal-yz-web)
+# Tasarım Spesifikasyonu — Yapay Zekâ Kulübü (YZK)
 
 > Bu belge, 15 dakikalık (921 sn) tasarım düşünmesinin çıktısı olan **yeni** tasarım sistemidir (Konsept B — Osiloskop). Uygulama hedefi: `index.html`, `style.css`, `core.js` bu belgeye göre yeniden yazılacak. (ESKİ krem/brutalist tasarım geçersizdir.)
 

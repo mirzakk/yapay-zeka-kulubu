@@ -326,7 +326,7 @@
           <canvas id="hero-canvas" class="hero-canvas"></canvas>
           <div class="hero-art-overlay">
             <div class="art-topline">
-              <span>SİNYAL / DİSİPLİNLER MATRİSİ</span>
+              <span>YZK / DİSİPLİNLER MATRİSİ</span>
               <b>CANLI SİSTEM</b>
             </div>
             <div class="art-card-pill">
@@ -1062,7 +1062,7 @@
     const L = T[lang];
     view().innerHTML = `
       <section class="hero">
-        <span class="lab" style="color:var(--cyan);">KATILIM SİNYALİ</span>
+        <span class="lab" style="color:var(--cyan);">KATILIM AÇIK</span>
         <h1>${esc(fmt("Masada Sana da Yer Var.", "Take a Seat at the Table."))}</h1>
         <p class="lede">${esc(fmt("Kulüp üyeliği veya yönetim kadrosu için başvuru türünü seç ve formunu ilet.", "Choose whether you are applying for general membership or a board leadership role."))}</p>
       </section>
@@ -1534,7 +1534,7 @@
   function render404() {
     view().innerHTML = `
       <div class="big404">404</div>
-      <p style="text-align:center;font-size:18px;color:var(--muted);margin-top:10px;">${esc(fmt("Aradığınız sinyal bulunamadı.", "The requested signal could not be located."))}</p>
+      <p style="text-align:center;font-size:18px;color:var(--muted);margin-top:10px;">${esc(fmt("Aradığınız sayfa bulunamadı.", "The requested page could not be found."))}</p>
       <div style="text-align:center;margin-top:30px;">
         <a class="btn solid" href="#/">${esc(fmt("Ana Sayfaya Dön", "Return Home"))} →</a>
       </div>
@@ -1724,6 +1724,9 @@
         const open = !nav.classList.contains("open");
         nav.classList.toggle("open", open);
         menuBtn.setAttribute("aria-expanded", String(open));
+        menuBtn.setAttribute("aria-label", open ? fmt("Menüyü kapat", "Close menu") : T[lang].ui.menu);
+        const sp = menuBtn.querySelector("span");
+        if (sp) sp.textContent = open ? fmt("KAPAT", "CLOSE") : T[lang].ui.menu;
       });
     }
 

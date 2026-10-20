@@ -8,7 +8,7 @@ Saf HTML5, CSS3 ve modern ES6 JavaScript kullanır; hiçbir derleme (build), har
 
 ## Özellikler
 
-1. **İnteraktif Sinyal Deneyimi ("Mouse Yaklaşınca Tepki Veren")**:
+1. **İnteraktif Deneyim ("Mouse Yaklaşınca Tepki Veren")**:
    - İmleci takip eden dinamik radyal ışık huzmesi (`ambient-glow`).
    - Kart sınırlarını fareye göre aydınlatan Spotlight efektleri (`.spotlight-card`).
    - Hover durumunda derinlikli 3D kart yükselmesi ve siber neon ışıma.
