@@ -2,7 +2,7 @@
 <html lang="tr" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="dark">
 <title>Yapay Zekâ Kulübü · YZK</title>
 <meta name="description" content="Yapay zekâyı birlikte araştıran, deneyen ve sorumlu biçimde üreten disiplinler arası öğrenci topluluğu.">
@@ -155,13 +155,14 @@
     <div class="palette-search">
       <span class="palette-search-icon" aria-hidden="true">⌕</span>
       <input id="palInput" type="text" placeholder="Sayfa, odak alanı veya komut ara…" aria-controls="palList" autocomplete="off">
-      <button id="paletteClose" class="palette-close" type="button" aria-label="Komut paletini kapat">ESC</button>
+      <button id="paletteClose" class="palette-close" type="button" aria-label="Komut paletini kapat"><span class="pal-close-kbd">ESC</span><span class="pal-close-x" aria-hidden="true">✕</span></button>
     </div>
     <div class="pal-list" id="palList"></div>
     <div class="pal-footer">
-      <span><kbd>↑</kbd> <kbd>↓</kbd> Gezin</span>
-      <span><kbd>↵</kbd> Seç</span>
-      <span><kbd>ESC</kbd> Kapat</span>
+      <span class="pal-hint-kbd"><kbd>↑</kbd> <kbd>↓</kbd> Gezin</span>
+      <span class="pal-hint-kbd"><kbd>↵</kbd> Seç</span>
+      <span class="pal-hint-kbd"><kbd>ESC</kbd> Kapat</span>
+      <span class="pal-hint-touch">Bir sayfaya dokunarak git</span>
     </div>
   </div>
 </div>

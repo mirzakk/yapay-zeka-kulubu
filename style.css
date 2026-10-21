@@ -62,6 +62,7 @@ html {
   scroll-behavior: smooth;
   background: var(--bg);
   color: var(--fg);
+  overflow-x: clip;              /* subpiksel yuvarlamadan doğan 1px kaymayı kes */
 }
 
 body {
@@ -1554,6 +1555,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: 1px 6px;
   font: inherit;
 }
+.pal-close-x { display: none; }
+.pal-hint-touch { display: none; }
 
 /* ═══════════════════════════════════════════════════
    LOGIN / AUTH MODAL
@@ -2379,4 +2382,339 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .lens-tabs { flex-direction: row; flex-wrap: wrap; }
   .ev { grid-template-columns: 56px 1fr; gap: 12px; }
   .news { flex-direction: column; }
+}
+
+/* ═══════════════════════════════════════════════════
+   MOBİL TAM UYUMLULUK KATMANI
+   Tek yerden: dokunma hedefleri, iOS zoom eşiği,
+   okunabilir minimum punto, güvenli alanlar, yatay tutuş.
+   Sondaki blok olduğu için önceki kuralları ezer.
+═══════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  /* iOS, 16px altındaki alanlara odaklanınca sayfayı zoomlar.
+     Tüm form kontrolleri 16px → zoom yok, layout kaymaz. */
+  .field input, .field textarea, .field select,
+  .filter-field input, .filter-field select,
+  .metric-cell input, #tokenInput, #draftForm input, #draftForm textarea,
+  .palette-search input, .auth-form .field input,
+  .admin-search, .admin-form input, .admin-form textarea, .admin-form select {
+    font-size: 16px;
+  }
+  /* Klavye açıkken alan görünür kalsın + iOS'ta otomatik büyümeyi engelle */
+  .field input, .field textarea, .field select, .metric-cell input { min-height: 44px; }
+  textarea { resize: vertical; }
+}
+
+@media (max-width: 768px) {
+  /* ── 1. Güvenli alanlar (çentik / home bar) ── */
+  .top-inner { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .marquee { padding-top: env(safe-area-inset-top); }
+  #view { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .foot-top { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .foot-note { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .cookie-bar { bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .nav.open { padding-top: calc(80px + env(safe-area-inset-top)); padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+  /* Çerez bandı içeriği örtmesin: bandın yüksekliği kadar alta yer aç */
+  body:has(.cookie-bar) #view { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+  .cookie-bar { left: 12px; right: 12px; transform: none; width: auto; }
+  .cookie-bar p { min-width: 0; flex: 1 1 100%; }
+  .cookie-bar button { flex: 0 0 auto; margin-left: auto; }
+
+  /* ── 2. Dokunma hedefleri: min 44x44 ── */
+  .foot-cols a { padding: 13px 0; }
+  .login-link, .nav-apply, .chip, .menu-toggle, .brand, .foot-brand,
+  .skip, #view a:not(.btn):not(.nav-apply):not(.wallcard),
+  .foot-cols a, .foot-note a { min-height: 44px; }
+  .foot-cols a, .foot-note a { display: flex; align-items: center; }
+  .cookie-bar a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px; }
+  .filter-field input, .filter-field select { min-height: 44px; }
+  .brand { min-width: 44px; justify-content: center; }
+  .chip, .menu-toggle { min-width: 44px; }
+  .filter-tab, .btn.sm, .palette-close, .auth-close, .auth-tab { min-height: 44px; }
+  .btn { min-height: 48px; }
+  .foot-brand { display: inline-flex; align-items: center; }
+  .skip { display: inline-flex; align-items: center; padding-top: 0; padding-bottom: 0; }
+  .choice { min-height: 52px; }
+  .choice input[type="radio"] { width: 26px; height: 26px; flex-shrink: 0; }
+  #privacyAck { width: 26px; height: 26px; flex-shrink: 0; }
+  #switchToReg { min-height: 44px; padding: 10px 6px; font-size: 13px; }
+  .cookie-bar button { min-height: 44px; }
+  .tag-list .pill, .pill { padding: 6px 12px; }
+  .ft-nav a, .ft-links a, .link-list a { display: inline-block; padding: 8px 0; }
+  a.k, a.lab { display: inline-block; padding: 8px 0; }
+  /* satır içi metin linkleri: dokunma alanı genişlet */
+  #view p a, #view li a, .legal-body a, .about-card a {
+    display: inline-block;
+    padding: 6px 0;
+  }
+
+  /* ── 3. Okunabilir minimum punto (11px taban) ── */
+  .eyebrow, .lab, .k, .tag, .more, .role, .cap-label, .hint, .empty-mark { font-size: 11.5px; }
+  .pill { font-size: 11px; }
+  .wallcard-badge, .status-badge, .ev-cap-label, .ev-cat, .news-card-cat,
+  .proj-cat, .reading-meta, .metric-result span, .token-stat-item span,
+  .ev-date .ev-mo, .lens-tab span, .field label,
+  .application-steps li > span { font-size: 11px; }
+  .foot-status, .art-topline, .art-footline { font-size: 11px; }
+  .marquee-inner span { font-size: 11.5px; }
+  /* Kenarlarda yumuşak geçiş: metin "kesilmiş" değil, akıyor gibi okunur */
+  .marquee {
+    height: 38px;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+  }
+  .marquee-inner { gap: 24px; padding-left: 0; }
+  .marquee-inner span { padding-right: 8px; }
+  .ev .date span { font-size: 11px; }
+  .field-strip, .field-strip span, .field-strip i { font-size: 11px; }
+  .wallcard-foot, .wallcard-foot span { font-size: 11px; }
+  .art-card-pill span { font-size: 11px; }
+  .art-card-pill em { font-size: 11.5px; }
+  .news-card-footer, .news-card-footer a, .proj-meta, .ev-meta,
+  .pal-footer, .auth-divider { font-size: 11px; }
+  .hero-meta div { font-size: 11.5px; }
+  .status-badge, .wallcard-badge { letter-spacing: 0.06em; }
+  .ev .cap-label, .cap-label, .metric-cell > span { font-size: 11.5px; }
+
+  /* ── 4. Yerleşim: tek kolon, taşma yok ── */
+  .hero h1 {
+    font-size: clamp(1.72rem, 7.3vw, 2.3rem);
+    line-height: 1.16;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    overflow-wrap: break-word;
+    hyphens: none;
+  }
+  /* H1: mobilde 3 blok ayrı ayrı sarınca 4-5 satır oluyor;
+     tek paragraf gibi akıt, balance tüm başlığa uygulanır. */
+  .hero h1 span, .hero h1 em { display: inline; }
+  .hero h1 span::after, .hero h1 em::after { content: " "; }
+  .hero h1 span:last-child::after { content: ""; }
+  .hero p.lede { font-size: 15.5px; line-height: 1.65; margin-bottom: 24px; }
+  .hero-home { min-height: auto; padding: 8px 0 32px; gap: 28px; }
+  .top-inner { justify-content: space-between; gap: 8px; }
+  .top-actions { gap: 8px; }
+  .hero-art-container { min-height: 300px; aspect-ratio: 4/3; }
+  /* kart üstü yazılar grafiğin parlak düğümleriyle çakışmasın */
+  .hero-art-overlay::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(8,12,20,0.78) 0%, transparent 26%, transparent 74%, rgba(8,12,20,0.78) 100%);
+    pointer-events: none;
+  }
+  .art-topline, .art-footline { position: relative; z-index: 1; }
+  .hero-meta { gap: 14px; margin-top: 28px; }
+  .hero-meta div { font-size: 11.5px; }
+  .cta-row { gap: 12px; flex-direction: column; align-items: stretch; }
+  .cta-row .btn, .cta-row .nav-apply { width: 100%; justify-content: center; min-height: 50px; }
+  .cta-row .btn span[aria-hidden] { margin-left: 2px; }
+  .sec { margin-top: 52px; }
+  .sec-head { flex-direction: column; gap: 6px; }
+  .sec-head h2 { font-size: clamp(1.4rem, 6vw, 1.9rem); }
+  .sec-intro { font-size: 14.5px; }
+  .section-header { margin-bottom: 32px; }
+  .section-header h2 { font-size: clamp(1.5rem, 6.4vw, 2rem); }
+  .section-header p { font-size: 14.5px; }
+  .grid { gap: 14px; }
+  .spotlight-card, .lab-tool, .token-calc-box, .about-card, .member-card,
+  .proj-card, .news-card, .reading-card, .dictionary-item, .value-card,
+  .prog-step, .perspective-item { padding: 20px; }
+  .lab-tool, .token-calc-box { padding: 18px; }
+  .lab-tool-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .lab-tool-head .cta-row { width: 100%; }
+  .lab-tool-head .cta-row .btn { flex: 1; }
+  .metric-results, .metric-inputs, .token-stats-bar { gap: 10px; }
+  .metric-cell input { padding: 12px 14px; }
+  .filter-field input, .filter-field select { padding: 12px 14px; }
+  .app-layout-safe { min-width: 0; }
+
+  /* ── 5. Formlar: tek kolon, tam genişlik ── */
+  .application-layout { gap: 22px; margin-top: 24px; }
+  .application-intro { position: static; }
+  .fm fieldset { padding: 16px; }
+  .fm legend { font-size: 11px; }
+  .field-grid { grid-template-columns: 1fr; gap: 14px; }
+  .field.full { grid-column: auto; }
+  .field input, .field textarea, .field select { padding: 12px 14px; }
+  .choice { padding: 14px 16px; gap: 12px; }
+  .choice-list { gap: 10px; }
+  .fm .cta-row .btn, .fm button[type="submit"] { width: 100%; }
+  .filter-bar { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; }
+  .filter-field { width: 100%; justify-content: space-between; }
+  .filter-field.search-wide { min-width: 0; }
+  .filter-field input, .filter-field select { flex: 1; }
+  .result-count { text-align: right; }
+  .filter-tabs { gap: 8px; }
+  .filter-tab { flex: 1 1 auto; }
+
+  /* ── 6. Kartlar: dikey yığın ── */
+  .ev, .ev-card { grid-template-columns: 1fr; gap: 14px; }
+  .ev .date, .ev-card .ev-date {
+    display: flex; align-items: center; gap: 10px;
+    justify-content: flex-start; padding: 10px 14px;
+  }
+  .ev .date b, .ev-card .ev-date .ev-d { font-size: 1.5rem; }
+  .ev .date span, .ev-card .ev-date .ev-mo { margin-top: 0; }
+  .news { gap: 12px; }
+  .news .stamp { width: 40px; height: 40px; }
+  .proj-card-top { flex-wrap: wrap; gap: 8px; }
+  .wallcard-image { aspect-ratio: 16/10; }
+  .wallcard-body { padding: 18px; }
+  .member-card { gap: 8px; }
+  .member-avatar { width: 46px; height: 46px; }
+
+  /* ── 7. Disiplin detay / lens sekmeleri: yatay kaydırma ── */
+  .lens-layout { grid-template-columns: 1fr; gap: 16px; }
+  .lens-tabs {
+    flex-direction: row; flex-wrap: nowrap;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 6px; margin: 0 -2px;
+    scrollbar-width: none;
+  }
+  .lens-tabs::-webkit-scrollbar { display: none; }
+  .lens-tab { flex: 0 0 auto; min-width: 150px; scroll-snap-align: start; padding: 14px; }
+  .lens-panel { padding: 20px; }
+  .discipline-kicker { flex-wrap: wrap; gap: 10px; }
+  .dquestion { font-size: clamp(1.5rem, 7vw, 2rem); }
+  .danswer { font-size: 15px; margin-bottom: 24px; }
+  .discipline-hero-img { max-height: 260px; margin: 22px 0; }
+
+  /* ── 8. Katkı tablosu: kart görünümüne çevir (inline style'ı ez) ── */
+  .contrib-table { display: block; }
+  .contrib-table .contrib-head { display: none !important; }
+  .contrib-table .contrib-row {
+    display: grid !important;
+    grid-template-columns: auto 1fr !important;
+    gap: 2px 12px !important;
+    padding: 14px 16px !important;
+    align-items: start !important;
+  }
+  .contrib-table .contrib-row > b {
+    grid-row: 1 / span 2;
+    grid-column: 1;
+    font-size: 15px;
+    align-self: center;
+  }
+  .contrib-table .contrib-row > strong:nth-child(2) {
+    grid-column: 2;
+    font-size: 15px;
+    line-height: 1.35;
+  }
+  .contrib-table .contrib-row > span:nth-child(3) {
+    grid-column: 2;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .contrib-table .contrib-row > strong:last-child {
+    grid-column: 1 / -1;
+    text-align: right;
+    padding-top: 8px;
+    margin-top: 4px;
+    border-top: 1px dashed var(--line);
+    font-size: 12.5px;
+  }
+
+  /* ── 9. Komut paleti: mobil tam ekran ── */
+  .palette { padding: 0; align-items: stretch; }
+  .palette-box {
+    max-width: none; border-radius: 0;
+    display: flex; flex-direction: column;
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .palette-search { padding: 12px 16px; gap: 10px; }
+  .palette-search input { font-size: 16px; }
+  .palette-close { padding: 10px 12px; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .pal-close-kbd { display: none; }
+  .pal-close-x { display: inline; font-size: 15px; }
+  .pal-list { max-height: none; flex: 1; padding: 10px; }
+  .pal-item {
+    padding: 14px 16px; min-height: 52px;
+    border-bottom: 1px solid var(--line);
+    font-size: 14.5px;
+    align-items: center;
+  }
+  .pal-item small { font-size: 11px; }
+  .pal-item:active, .pal-item.selected { background: var(--surf3); color: var(--fg); }
+  .pal-footer { padding: 10px 16px; gap: 10px; font-size: 11px; justify-content: center; }
+  .pal-hint-kbd { display: none; }
+  .pal-hint-touch { display: inline; color: var(--dim); }
+
+  /* ── 10. Modal / login ── */
+  .auth-modal-overlay { padding: 0; align-items: flex-end; }
+  .auth-modal {
+    max-width: none; border-radius: 20px 20px 0 0;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+    max-height: 92dvh; overflow-y: auto;
+  }
+  .auth-close { padding: 10px 12px; top: 12px; right: 12px; }
+  .login-page { gap: 24px; min-height: auto; padding: 8px 0 24px; }
+  .login-card { padding: 22px 18px; }
+  .login-info h1 { font-size: clamp(1.7rem, 7.5vw, 2.2rem); }
+  .auth-tabs { gap: 10px; }
+
+  /* ── 11. Footer ── */
+  .foot { margin-top: 56px; }
+  .foot-top { gap: 28px; padding-top: 40px; padding-bottom: 28px; }
+  .foot-tagline { max-width: none; }
+  .foot-cols { grid-template-columns: 1fr 1fr; gap: 22px 18px; }
+  .foot-cols a { font-size: 13.5px; }
+  .foot-note { gap: 8px; font-size: 11px; line-height: 1.6; }
+  .foot-brand { font-size: 1.7rem; }
+
+  /* ── 12. Hukuki metin: okunur ölçü ── */
+  .legal-body { margin: 24px 0; gap: 20px; }
+  .legal-body p, .legal-body li { font-size: 14.5px; }
+
+  /* ── 13. 404 ── */
+  .not-found { padding: 56px 16px; }
+  .not-found h1 { font-size: 4rem; }
+  .big404 { font-size: 6rem; }
+
+  /* ── 14. Boş durum ── */
+  .empty { padding: 44px 16px; }
+  .empty p { font-size: 14.5px; }
+}
+
+/* ── Çok dar ekran (≤360): marka metni gizle, hedef küçültme yok ── */
+@media (max-width: 400px) {
+  .brand-copy { display: none; }
+  .top-actions .cmd-chip { display: none; }
+  .hero h1 { font-size: clamp(1.6rem, 6.9vw, 2.05rem); }
+  .stat-bar, .metric-results, .token-stats-bar, .foot-cols { grid-template-columns: 1fr 1fr; }
+  .token-stats-bar .token-stat-item:last-child { grid-column: 1 / -1; }
+  .cta-row .btn { width: 100%; }
+}
+
+/* ── Yatay tutuş (kısa yükseklik): dikey alanı koru ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hero-home { min-height: auto; }
+  .hero-art-container { min-height: 220px; }
+  .nav.open { padding-top: calc(56px + env(safe-area-inset-top)); }
+  .palette-box { height: 100dvh; }
+}
+
+/* ── Yazdırma ── */
+@media print {
+  .top, .marquee, .cookie-bar, .scroll-progress, .ambient-glow,
+  .palette, .auth-modal-overlay, .skip, .foot-cols, .nav-apply { display: none !important; }
+  body { background: #fff; color: #000; }
+  a[href]::after { content: " (" attr(href) ")"; font-size: 11px; color: #444; }
+}
+
+/* ── Hareket azaltma (erişilebilirlik) ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .marquee-inner { animation: none !important; transform: none !important; padding-left: 0 !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+  .ambient-glow { display: none; }
+  .live-dot, .status-live-dot, .brand-pulse { animation: none !important; }
 }

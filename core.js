@@ -469,7 +469,7 @@
           <div class="cap"><i style="width:${pct}%"></i></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
             <span class="cap-label">${filled} / ${cap} ${esc(T[lang].kayıt)} (${pct}%)</span>
-            <a class="btn" style="min-height:36px;padding:6px 14px;font-size:11px;" href="#/basvuru">${esc(fmt("Kaydol", "RSVP"))} ↗</a>
+            <a class="btn"  href="#/basvuru">${esc(fmt("Kaydol", "RSVP"))} ↗</a>
           </div>
         </div>
       </article>`;
@@ -506,7 +506,7 @@
           </div>
           <h3>${esc(n.t)}</h3>
           <p>${esc(n.why)}</p>
-          ${href ? `<a class="btn" style="margin-top:14px;min-height:36px;padding:6px 14px;font-size:11px;" href="${href}" target="_blank" rel="noopener noreferrer">${esc(fmt("Kaynağı Oku", "Read Source"))} ↗</a>` : ""}
+          ${href ? `<a class="btn" style="margin-top:14px;" href="${href}" target="_blank" rel="noopener noreferrer">${esc(fmt("Kaynağı Oku", "Read Source"))} ↗</a>` : ""}
         </div>
       </div>`;
   }
@@ -522,7 +522,7 @@
 
     view().innerHTML = `
       <div style="margin-bottom:24px;">
-        <a class="btn" style="min-height:38px;padding:6px 14px;font-size:11px;" href="#/alanlar">← ${esc(fmt("Tüm Odak Alanları", "All Focus Areas"))}</a>
+        <a class="btn"  href="#/alanlar">← ${esc(fmt("Tüm Odak Alanları", "All Focus Areas"))}</a>
       </div>
 
       <div class="discipline-kicker">
@@ -741,7 +741,7 @@
             <h2>${esc(p.title)}</h2>
             <p class="reading-authors">${esc(p.authors)}</p>
             <p>${esc(p.note)}</p>
-            <a class="btn" style="margin-top:16px;min-height:36px;padding:6px 14px;font-size:11px;" href="${safeHref(p.url)}" target="_blank" rel="noopener noreferrer">${esc(fmt("Makaleyi Aç (ArXiv)", "Open Paper (ArXiv)"))} ↗</a>
+            <a class="btn" style="margin-top:16px;" href="${safeHref(p.url)}" target="_blank" rel="noopener noreferrer">${esc(fmt("Makaleyi Aç (ArXiv)", "Open Paper (ArXiv)"))} ↗</a>
           </article>
         `).join("")}
       </div>
@@ -967,7 +967,7 @@
             <div style="margin-top:16px;">
               ${(ad.need || []).map(n => `<span class="pill">${esc(n)}</span>`).join("")}
             </div>
-            <a class="btn" style="margin-top:20px;width:100%;font-size:11px;" href="#/basvuru">${esc(fmt("İletişime Geç", "Reach Out"))} →</a>
+            <a class="btn" style="margin-top:20px;width:100%;" href="#/basvuru">${esc(fmt("İletişime Geç", "Reach Out"))} →</a>
           </div>
         `).join("")}
       </div>
@@ -1037,15 +1037,15 @@
         <h1>${esc(fmt("Topluluk Katkı Tablosu", "Contribution Matrix"))}</h1>
         <p class="lede">${esc(fmt("Açık kaynak repolarına, veri setlerine ve atölyelere sunulan doğrulanabilir katkılar.", "Verifiable contributions to open repositories, dataset curations and community workshops."))}</p>
       </section>
-      <div class="spotlight-card reveal" style="margin-top:30px;padding:0;">
-        <div style="display:grid;grid-template-columns:50px 1.5fr 2fr 1fr;padding:16px 24px;border-bottom:1px solid var(--line);font:700 11px var(--mono);color:var(--cyan);">
+      <div class="spotlight-card reveal contrib-table" style="margin-top:30px;padding:0;">
+        <div class="contrib-head" style="display:grid;grid-template-columns:50px 1.5fr 2fr 1fr;padding:16px 24px;border-bottom:1px solid var(--line);font:700 11px var(--mono);color:var(--cyan);">
           <span>#</span>
           <span>ÇALIŞMA</span>
           <span>KATKI DETAYI</span>
           <span style="text-align:right;">SKOR</span>
         </div>
         ${rows.map((r, i) => `
-          <div style="display:grid;grid-template-columns:50px 1.5fr 2fr 1fr;padding:18px 24px;border-bottom:1px solid var(--line);align-items:center;font-size:14px;">
+          <div class="contrib-row" style="display:grid;grid-template-columns:50px 1.5fr 2fr 1fr;padding:18px 24px;border-bottom:1px solid var(--line);align-items:center;font-size:14px;">
             <b style="color:var(--cyan);font-family:var(--mono);">0${i + 1}</b>
             <strong style="color:var(--fg);">${esc(r.name)}</strong>
             <span style="color:var(--muted);">${esc(r.contribution)}</span>
