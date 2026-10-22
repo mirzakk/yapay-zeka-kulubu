@@ -108,6 +108,42 @@
     } catch (e) { return ''; }
   }
 
+  /* ── Kasa (vault): özel anahtar, yönetici parolasıyla sarılı ──────────
+     Sunucuda yalnızca sarılı hâli durur; parola hiçbir yerde saklanmaz.
+     Doğru parola = AES-GCM auth etiketi geçer. Yanlış parola = çözüm hatası. */
+  const KDF_ITER = 600000;
+
+  /* Anahtar dosyasını çöz, ham pkcs8 döndür (yeniden sarmak için) */
+  async function unwrapKeyFileRaw(fileObj, password) {
+    var f = typeof fileObj === "string" ? JSON.parse(fileObj) : fileObj;
+    if (!f || f.v !== 1 || !f.kdf || !f.iv || !f.wrapped) throw new Error("anahtar dosyası geçersiz");
+    var base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+    var kek = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: b64.dec(f.kdf.salt), iterations: f.kdf.iter, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]
+    );
+    return crypto.subtle.decrypt({ name: "AES-GCM", iv: b64.dec(f.iv) }, kek, b64.dec(f.wrapped));
+  }
+
+  /* pkcs8 + parola → sunucuda saklanabilir kasa nesnesi */
+  async function makeVault(pkcs8, password) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+    var kek = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: salt, iterations: KDF_ITER, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["encrypt"]
+    );
+    var wrapped = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, kek, pkcs8);
+    return { v: 1, kdf: { salt: b64.enc(salt), iter: KDF_ITER }, iv: b64.enc(iv), wrapped: b64.enc(wrapped), at: Date.now() };
+  }
+
+  /* kasa + parola → RSA özel anahtarı (yanlış parolada fırlatır) */
+  async function openVault(vault, password) {
+    var pkcs8 = await unwrapKeyFileRaw(vault, password);
+    return crypto.subtle.importKey("pkcs8", pkcs8, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
+  }
+
   /* ── Cihaz-yerel depo zarfı: anahtar IndexedDB'de, extractable:false ──
      Dökümü alan (profil klasörü, yedek, disk imajı) veriyi okuyamaz. */
   var _localKey = null;
@@ -165,6 +201,7 @@
   global.YZKSecure = {
     seal: seal, open: open, unwrapKeyFile: unwrapKeyFile,
     sealLocal: sealLocal, openLocal: openLocal,
+    unwrapKeyFileRaw: unwrapKeyFileRaw, makeVault: makeVault, openVault: openVault,
     clean: clean, cleanMultiline: cleanMultiline,
     isBox: isBox, safeHref: safeHref,
     b64: b64, PUBLIC_KEY: PUB

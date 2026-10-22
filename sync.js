@@ -158,6 +158,37 @@
     }
   }
 
+  /* ── Kasa (özel anahtar, yönetici parolasıyla sarılı) ────────────────
+     RTDB: /config/vault.json — herkese açık okunabilir, parolasız açılamaz. */
+  function vaultUrl() {
+    if (CFG.provider !== "rtdb") return "";
+    return CFG.rtdb.url.replace(/\/+$/, "") + "/config/vault.json";
+  }
+
+  async function vaultGet() {
+    var u = vaultUrl();
+    if (!u) return null;
+    try {
+      var r = await fetch(u, { cache: "no-store" });
+      if (!r.ok) return null;
+      var v = await r.json();
+      return v && v.v === 1 && v.wrapped ? v : null;
+    } catch (e) { return null; }
+  }
+
+  async function vaultPut(vault, existing) {
+    var u = vaultUrl();
+    if (!u) return { ok: false, reason: "provider" };
+    try {
+      var r = await fetch(u, {
+        method: existing ? "PUT" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(vault)
+      });
+      return { ok: r.ok, reason: r.ok ? "" : "http " + r.status };
+    } catch (e) { return { ok: false, reason: "network" }; }
+  }
+
   /* Yerel depoyla birleştir (ct ile tekilleştir) */
   async function merge() {
     var p = await pull();
@@ -178,5 +209,5 @@
     return { ok: true, added: added, total: local.length };
   }
 
-  global.YZKSync = { enabled: enabled, push: push, pull: pull, merge: merge, config: CFG };
+  global.YZKSync = { enabled: enabled, push: push, pull: pull, merge: merge, vaultGet: vaultGet, vaultPut: vaultPut, config: CFG };
 })(window);

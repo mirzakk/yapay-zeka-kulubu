@@ -227,23 +227,29 @@
       <!-- ── APPLICATIONS ── -->
       <section class="admin-section" id="sec-applications">
 
-        <!-- Şifre çözme kilidi: özel anahtar sitede yok, dosyadan yüklenir -->
-        <div id="appsLockBar" class="admin-lockbar">
+        <!-- Başvuru şifresi: tek seferlik kurulum, sonrası yalnızca parola -->
+        <div id="appsLockBar" class="admin-lockbar" hidden>
           <div class="admin-lockbar-text">
-            <b>Başvurular uçtan uca şifreli</b>
-            <p>Kayıtlar RSA-3072 + AES-256-GCM ile zarflanmış durumda. Okuyabilmek için
-               <code>yzk-admin-anahtar.json</code> dosyasını ve parolasını gir.
-               Dosya/parola olmadan bu veri — site sahibi dahil — açılamaz.</p>
+            <b id="lockTitle">Başvuruları aç</b>
+            <p id="lockDesc"></p>
           </div>
-          <div class="admin-lockbar-actions">
+
+          <!-- Tek seferlik kurulum: anahtar dosyası + dosya parolası + yeni yönetici parolası -->
+          <div class="admin-lockbar-actions" id="lockSetup" hidden>
             <input type="file" id="keyFile" accept="application/json,.json" hidden>
             <button class="btn sm" id="keyFileBtn" type="button">Anahtar dosyası seç</button>
             <span id="keyFileName" class="admin-lockfile">dosya seçilmedi</span>
-            <form id="unlockForm" style="display:flex;gap:8px;flex:1 1 260px;min-width:0;">
-              <input type="password" id="keyPass" class="admin-lockpass" placeholder="Anahtar parolası" autocomplete="off">
-              <button class="btn sm primary" id="unlockBtn" type="submit">Kilidi Aç</button>
-            </form>
+            <input type="password" id="keyFilePass" class="admin-lockpass" placeholder="Dosya parolası" autocomplete="off">
+            <input type="password" id="newAdminPass" class="admin-lockpass" placeholder="Yönetici parolası (en az 12)" autocomplete="new-password" minlength="12">
+            <button class="btn sm primary" id="setupVaultBtn" type="button">Kaydet ve Aç</button>
           </div>
+
+          <!-- Kurulum sonrası: yalnızca parola -->
+          <form class="admin-lockbar-actions" id="unlockForm" hidden>
+            <input type="password" id="keyPass" class="admin-lockpass" placeholder="Yönetici parolası" autocomplete="current-password">
+            <button class="btn sm primary" id="unlockBtn" type="submit">Kilidi Aç</button>
+          </form>
+
           <div id="unlockMsg" class="admin-lockmsg"></div>
         </div>
 

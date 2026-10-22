@@ -478,14 +478,14 @@
     setB('appStatPending', unlocked ? all.filter(x => (x.status || 'pending') === 'pending').length : '—');
     setB('appStatToday', unlocked ? all.filter(x => x.submittedAt && new Date(x.submittedAt).toDateString() === today).length : '—');
 
-    $('#appsLockBar').hidden = unlocked;
+    refreshLockUI();
 
     if (!unlocked) {
       const syncOn = !!(window.YZKSync && YZKSync.enabled());
       tbody.innerHTML = `<tr><td colspan="7"><div class="admin-empty">
         <div class="admin-empty-icon">🔒</div>
-        <p><b>${sealedCount}</b> şifreli başvuru bu cihazda.</p>
-        <p style="font-size:12px;margin-top:6px;">Yukarıdan anahtar dosyasını ve parolasını gir; kayıtlar bu cihazda çözülür, hiçbir yere gönderilmez.</p>
+        <p><b>${sealedCount}</b> şifreli başvuru var.</p>
+        <p style="font-size:12px;margin-top:6px;">Yukarıdan yönetici parolanı gir; kayıtlar bu cihazda çözülür, hiçbir yere gönderilmez.</p>
         <p style="font-size:12px;margin-top:8px;color:${syncOn ? 'var(--lime)' : 'var(--amber)'};">
           ${syncOn
             ? 'Ortak uç nokta açık: diğer cihazlardan gelen başvurular için “Sunucudan Çek”.'
@@ -573,7 +573,7 @@
   async function rejectApp(id)  { await setAppStatus(id, 'rejected', 'Başvuru reddedildi.', 'error'); }
 
   async function setAppStatus(id, status, msg, kind) {
-    if (!isUnlocked()) { showToast('Önce anahtar dosyası ile kilidi aç.', 'error'); return; }
+    if (!isUnlocked()) { showToast('Önce yönetici parolası ile kilidi aç.', 'error'); return; }
     const apps = getApplications();
     const a = apps.find(x => x.id === id);
     if (!a) return;
@@ -585,7 +585,7 @@
 
   // ── CSV export ───────────────────────────────────────────
   $('#exportCsvBtn')?.addEventListener('click', () => {
-    if (!isUnlocked()) { showToast('Önce anahtar dosyası ile kilidi aç.', 'error'); return; }
+    if (!isUnlocked()) { showToast('Önce yönetici parolası ile kilidi aç.', 'error'); return; }
     const apps = getApplications();
     if (!apps.length) { showToast('Dışa aktarılacak başvuru yok.', 'error'); return; }
     const cols = ['id','submittedAt','application_type','status','name','tc','birthdate','student_no','email','phone','department','university','motivation','note'];
@@ -852,39 +852,110 @@
     $('#adminSidebar').classList.toggle('open');
   });
 
-  // ── Şifre çözme kilidi (anahtar dosyası + parola) ────────
+  // ── Başvuru şifresi: tek seferlik kurulum, sonrası yalnızca parola ──
+  // Kasa (sarılı özel anahtar) sunucuda /config/vault.json'da durur.
+  // Parola hiçbir yerde saklanmaz: doğru parola AES-GCM'i çözer, yanlış parola çözmez.
+  let vaultState;   // undefined = bilinmiyor, null = yok, object = var
   let keyFileText = '';
+
+  async function getVault() {
+    if (vaultState !== undefined) return vaultState;
+    vaultState = (window.YZKSync && YZKSync.vaultGet) ? await YZKSync.vaultGet() : null;
+    return vaultState;
+  }
+
+  function lockMsg(t, color) {
+    const m = $('#unlockMsg');
+    if (!m) return;
+    m.style.color = color || 'var(--dim)';
+    m.textContent = t || '';
+  }
+
+  async function refreshLockUI() {
+    const bar = $('#appsLockBar');
+    if (!bar) return;
+    if (isUnlocked()) { bar.hidden = true; return; }
+    bar.hidden = false;
+    const vault = await getVault();
+    const setup = $('#lockSetup');
+    const form = $('#unlockForm');
+    if (vault) {
+      $('#lockTitle').textContent = 'Başvurular kilitli';
+      $('#lockDesc').textContent = 'Yönetici parolanı gir; kayıtlar bu cihazda çözülür, hiçbir yere gönderilmez. Parola sunucuda saklanmaz.';
+      if (setup) setup.hidden = true;
+      if (form) form.hidden = false;
+    } else {
+      $('#lockTitle').textContent = 'İlk kurulum (tek seferlik)';
+      $('#lockDesc').textContent = 'Anahtar dosyanı bir kez yükle ve bir yönetici parolası belirle. Sonrasında dosya gerekmez: her cihazda yalnızca parolayla girersin.';
+      if (setup) setup.hidden = false;
+      if (form) form.hidden = true;
+    }
+  }
+
   $('#keyFile')?.addEventListener('change', async e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     keyFileText = await f.text();
     $('#keyFileName').textContent = f.name;
-    $('#unlockMsg').textContent = '';
+    lockMsg('');
   });
   $('#keyFileBtn')?.addEventListener('click', () => $('#keyFile').click());
 
+  /* Tek seferlik: dosya + dosya parolası + yeni yönetici parolası → kasayı sunucuya yaz */
+  $('#setupVaultBtn')?.addEventListener('click', async () => {
+    const filePass = $('#keyFilePass').value;
+    const newPass = $('#newAdminPass').value;
+    if (!keyFileText) { lockMsg('Önce anahtar dosyasını seç.', 'var(--red)'); return; }
+    if (filePass.length < 4) { lockMsg('Dosya parolasını gir.', 'var(--red)'); return; }
+    if (newPass.length < 12) { lockMsg('Yönetici parolası en az 12 karakter olmalı.', 'var(--red)'); return; }
+    lockMsg('Kasayı hazırlıyor…');
+    try {
+      const raw = await YZKSecure.unwrapKeyFileRaw(keyFileText, filePass);
+      const vault = await YZKSecure.makeVault(raw, newPass);
+      const put = await YZKSync.vaultPut(vault, false);
+      if (!put.ok) { lockMsg('Sunucuya yazılamadı: ' + put.reason, 'var(--red)'); return; }
+      appKey = await YZKSecure.openVault(vault, newPass);
+      vaultState = vault;
+      await setPassword(newPass);            // panel girişi de aynı parola olsun
+      await decryptAll();
+      $('#keyFilePass').value = ''; $('#newAdminPass').value = '';
+      lockMsg('Kurulum tamam. Bundan sonra yalnızca parola yeterli.', 'var(--lime)');
+      refreshLockUI(); renderApplications(); renderDashboard();
+    } catch (e) {
+      lockMsg('Açılamadı: dosya parolası yanlış ya da dosya bozuk.', 'var(--red)');
+    }
+  });
+
+  /* Kurulum sonrası: yalnızca parola */
   $('#unlockForm')?.addEventListener('submit', async e => {
     e.preventDefault();
-    const msg = $('#unlockMsg');
-    if (!keyFileText) { msg.style.color = 'var(--red)'; msg.textContent = 'Önce anahtar dosyasını seç.'; return; }
     const pass = $('#keyPass').value;
-    if (!pass) { msg.style.color = 'var(--red)'; msg.textContent = 'Anahtar parolasını gir.'; return; }
-    msg.style.color = 'var(--dim)'; msg.textContent = 'Çözülüyor…';
-    try {
-      const n = await unlockApplications(keyFileText, pass);
-      msg.style.color = 'var(--lime)';
-      msg.textContent = n + ' başvuru çözüldü. Bu cihazın belleğinde tutuluyor.';
+    if (!pass) return;
+    lockMsg('Çözülüyor…');
+    const r = await unlockWithPassword(pass);
+    if (r.ok) {
       $('#keyPass').value = '';
-      renderApplications();
-      renderDashboard();
-    } catch (err) {
-      msg.style.color = 'var(--red)';
-      msg.textContent = 'Açılamadı: dosya bozuk ya da parola yanlış.';
+      lockMsg(r.count + ' başvuru çözüldü.', 'var(--lime)');
+      refreshLockUI(); renderApplications(); renderDashboard();
+    } else {
+      lockMsg('Parola yanlış.', 'var(--red)');
       lockApplications();
     }
   });
 
-  // Sekme kapanınca anahtar bellekten düşer (sessionStorage'da tutulmuyor)
+  /* Kasa parolasıyla aç (girişte de kullanılır) */
+  async function unlockWithPassword(pass) {
+    const vault = await getVault();
+    if (!vault) return { ok: false, noVault: true };
+    try {
+      appKey = await YZKSecure.openVault(vault, pass);
+      const n = await decryptAll();
+      return { ok: true, count: n };
+    } catch (e) {
+      appKey = null; plainApps = null;
+      return { ok: false };
+    }
+  }
 
   // Clock
   function updateClock() {
@@ -979,22 +1050,51 @@
     $('#loginForm').addEventListener('submit', async e => {
       e.preventDefault();
       const pass = $('#adminPass').value;
-      const res  = await attemptLogin(pass);
+      const errEl = $('#loginError');
+      const fail = (txt) => {
+        if (errEl) { errEl.textContent = txt; errEl.style.display = 'block'; }
+        $('#adminPass').value = '';
+        $('#adminPass').focus();
+      };
+
+      const lock = getLock();
+      if (lock.until && Date.now() < lock.until) {
+        fail(`Çok fazla hatalı deneme. ${Math.ceil((lock.until - Date.now()) / 60000)} dakika sonra tekrar deneyin.`);
+        return;
+      }
+
+      // Kasa varsa: parola doğrudan AES-GCM'i çözer (sunucuda parola/hash yok)
+      const vault = await getVault();
+      if (vault) {
+        const u = await unlockWithPassword(pass);
+        if (u.ok) {
+          setLock({ n: 0, until: 0 });
+          sessionStorage.setItem(SESSION_KEY, 'authenticated');
+          await startPanel();
+          return;
+        }
+        const n = (lock.n || 0) + 1;
+        if (n >= MAX_TRIES) {
+          setLock({ n: 0, until: Date.now() + LOCK_MS });
+          fail(`Çok fazla hatalı deneme. ${Math.ceil(LOCK_MS / 60000)} dakika sonra tekrar deneyin.`);
+          return;
+        }
+        setLock({ n, until: 0 });
+        fail(`Parola hatalı. Kalan hak: ${MAX_TRIES - n}`);
+        return;
+      }
+
+      // Kasa yok: eski yerel hash yolu / ilk kurulum
+      const res = await attemptLogin(pass);
       if (res.ok) {
         sessionStorage.setItem(SESSION_KEY, 'authenticated');
         await startPanel();
       } else if (res.uninitialized) {
         showSetup();
+      } else if (res.locked) {
+        fail(`Çok fazla hatalı deneme. ${res.mins} dakika sonra tekrar deneyin.`);
       } else {
-        const errEl = $('#loginError');
-        if (errEl) {
-          errEl.textContent = res.locked
-            ? `Çok fazla hatalı deneme. ${res.mins} dakika sonra tekrar deneyin.`
-            : `Parola hatalı. Kalan hak: ${res.remaining}`;
-          errEl.style.display = 'block';
-        }
-        $('#adminPass').value = '';
-        $('#adminPass').focus();
+        fail(`Parola hatalı. Kalan hak: ${res.remaining}`);
       }
     });
   }
