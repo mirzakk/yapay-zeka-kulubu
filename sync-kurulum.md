@@ -60,6 +60,72 @@ panel her açılışta sessizce de çeker.
 
 ---
 
+## Firebase (Firestore) — Supabase yerine
+
+Supabase hesabı istemiyorsan aynı işi Firebase ile yapabilirsin. Ücretsiz Spark
+planı yeterli (kart istemez).
+
+1. https://console.firebase.google.com → **Add project** → ad ver → Google Analytics'i kapat.
+2. Sol menü → **Build → Firestore Database** → **Create database** → *Production mode* → bölge: `europe-west1`.
+3. **Rules** sekmesine yapıştır → Publish:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /applications/{doc} {
+      // Herkes zarf bırakabilir — yalnızca bu 5 alan ve boyut sınırıyla
+      allow create: if request.resource.data.keys().hasOnly(['v','t','iv','ck','ct'])
+                    && request.resource.data.ct is string
+                    && request.resource.data.ct.size() < 20000
+                    && request.resource.data.ck is string
+                    && request.resource.data.ck.size() < 4096;
+      // Okuma açık: içerik şifreli, anahtar sitede yok
+      allow read: if true;
+      // Güncelleme/silme yok → kayıt kaybı olmaz
+      allow update, delete: if false;
+    }
+  }
+}
+```
+
+4. **Project settings ⚙ → General → Your apps → Web (`</>`)** ile bir web app ekle.
+   `firebaseConfig` içinden şu ikisini al: `projectId` ve `apiKey`.
+5. `sync.js` başındaki bloğu doldur:
+
+```js
+var CFG = {
+  provider: "firebase",
+  supabase: { url: "", key: "", table: "applications" },
+  firebase: {
+    projectId: "yzk-xxxxx",              // ör. yzk-1a2b3
+    apiKey: "AIzaSy...",                 // Web API key (gizli değildir, kısıtlanır)
+    collection: "applications"
+  }
+};
+```
+
+6. Firebase Console → **Firestore → Rules** ile aynı kuralları doğrula; ardından
+   commit + push. Panelde **Sunucudan Çek ⟳** çalışır.
+
+### API anahtarını kısıtla (önerilir)
+Google Cloud Console → APIs & Services → Credentials → ilgili API key →
+**Application restrictions → HTTP referrers** → şunu ekle:
+`https://mirzakk.github.io/yapay-zeka-kulubu/*`
+Böylece anahtar başka sitelerde kullanılamaz.
+
+### Farklar
+| | Supabase | Firebase |
+|---|---|---|
+| Kurulum | SQL + 2 değer | Kural + 2 değer |
+| Tekilleştirme | `ct` üzerinde `unique` (veritabanı) | panelde `ct` ile (istemci) |
+| Silme koruması | RLS politikası yok | `allow delete: if false` |
+| Sorgu | PostgREST | Firestore REST (sayfalama 300) |
+
+İkisi de yalnızca zarf taşır; açık metin hiçbir koşulda yüklenmez.
+
+---
+
 ## Supabase istemiyorsan
 
 Senkron kapalı kalır. Akış şöyle işler:
