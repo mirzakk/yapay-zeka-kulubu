@@ -17,7 +17,7 @@ const ASSETS = [
   "manifest.webmanifest",
   "secure.js",
   "theme-boot.js",
-  "sw-reg.js",
+  "boot.js",
   "icon.svg",
   "404.html",
   "admin.html",
@@ -49,6 +49,10 @@ self.addEventListener("activate", e => {
     const cs = await self.clients.matchAll({ type: "window" });
     for (const c of cs) { try { c.navigate(c.url); } catch (err) {} }
   })());
+});
+
+self.addEventListener("message", e => {
+  if (e.data && e.data.type === "skip") self.skipWaiting();
 });
 
 self.addEventListener("fetch", e => {
