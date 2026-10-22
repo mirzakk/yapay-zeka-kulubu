@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>YZK · paylaşım kartı</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; }
+  body {
+    background:#0E0D0B; color:#F5EFE3; overflow:hidden;
+    font-family:"Space Grotesk", system-ui, sans-serif;
+    display:flex; align-items:center;
+  }
+  /* ince ızgara + sıcak ışık */
+  .grid {
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(245,239,227,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(245,239,227,0.045) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse 90% 80% at 30% 45%, #000 30%, transparent 78%);
+  }
+  .glow {
+    position:fixed; width:820px; height:820px; left:-260px; top:-190px;
+    background:radial-gradient(circle, rgba(232,163,61,0.22) 0%, rgba(139,123,240,0.10) 42%, transparent 68%);
+    filter:blur(6px);
+  }
+  .wrap {
+    position:relative; display:flex; align-items:center; gap:64px;
+    padding:0 88px; width:100%;
+  }
+  .mark { width:264px; height:264px; flex:0 0 auto; }
+  .mark svg { width:100%; height:100%; display:block; }
+
+  .txt { min-width:0; }
+  .kicker {
+    font-family:"JetBrains Mono", monospace; font-size:22px; font-weight:600;
+    letter-spacing:0.26em; color:#E8A33D; margin-bottom:22px;
+  }
+  h1 {
+    font-size:82px; line-height:0.98; font-weight:700; letter-spacing:-0.035em;
+    margin-bottom:26px;
+  }
+  h1 em { font-style:normal; color:#C9E05C; }
+  p {
+    font-size:27px; line-height:1.42; color:#B7AB97; max-width:660px; font-weight:500;
+  }
+  .rule { width:104px; height:4px; background:linear-gradient(90deg,#E8A33D,#C9E05C); margin:30px 0 22px; border-radius:2px; }
+  .url {
+    font-family:"JetBrains Mono", monospace; font-size:21px; letter-spacing:0.04em;
+    color:#F5EFE3; opacity:0.82;
+  }
+  .url b { color:#E8A33D; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="grid"></div><div class="glow"></div>
+<div class="wrap">
+  <div class="mark">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="YZK">
+  <defs>
+    <linearGradient id="yz" x1="12%" y1="8%" x2="88%" y2="92%">
+      <stop offset="0%" stop-color="#F2B44E"/>
+      <stop offset="52%" stop-color="#E8A33D"/>
+      <stop offset="100%" stop-color="#C9E05C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E8A33D" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#E8A33D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="48" cy="48" r="46" fill="url(#glow)"/>
+  <g stroke="url(#yz)" stroke-width="3.4" stroke-linecap="round" opacity="0.95">
+    <line x1="48" y1="48" x2="48.00" y2="19.00" /><line x1="48" y1="48" x2="73.11" y2="33.50" /><line x1="48" y1="48" x2="73.11" y2="62.50" /><line x1="48" y1="48" x2="48.00" y2="77.00" /><line x1="48" y1="48" x2="22.89" y2="62.50" /><line x1="48" y1="48" x2="22.89" y2="33.50" />
+  </g>
+  <g fill="url(#yz)">
+    <circle cx="48.00" cy="19.00" r="4.6"/><circle cx="73.11" cy="33.50" r="3.8"/><circle cx="73.11" cy="62.50" r="4.6"/><circle cx="48.00" cy="77.00" r="3.8"/><circle cx="22.89" cy="62.50" r="4.6"/><circle cx="22.89" cy="33.50" r="3.8"/>
+  </g>
+  <circle cx="48" cy="48" r="7.6" fill="#F5EFE3"/>
+  <circle cx="48" cy="48" r="3.6" fill="#0E0D0B"/>
+</svg>
+
+  </div>
+  <div class="txt">
+    <div class="kicker">MARMARA · TBMYO</div>
+    <h1>Yapay Zekâ<br><em>Kulübü</em></h1>
+    <p>Araştıran, deneyen ve sorumlu üreten disiplinler arası öğrenci topluluğu.</p>
+    <div class="rule"></div>
+    <div class="url">mirzakk.github.io/<b>yapay-zeka-kulubu</b></div>
+  </div>
+</div>
+</body>
+</html>

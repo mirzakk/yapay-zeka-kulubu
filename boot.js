@@ -1,56 +1,64 @@
 /* YZK boot — service worker kaydı + eski önbellek temizliği
  *
- * Neden ayrı dosya: eski bir service worker "/" veya "/sw-reg.js" yolunu
- * önbellekten servis edebiliyor. Yeni dosya adı, eski önbellekte bulunmadığı
- * için HER ZAMAN ağdan gelir → temizlik kodu kesin çalışır.
+ * Ayrı dosya olmasının nedeni: eski bir service worker bu yolu önbellekten
+ * servis edemez (dosya adı yeni) → temizlik kodu her zaman ağdan gelir.
+ *
+ * Sürüm, sw.js içindeki `yzk-vNN-` sabitinden okunur; iki dosya asla ayrışmaz.
  */
 (function () {
   "use strict";
-  var V = "v26";
-  var RELOADED = "yzk-boot-reloaded";
-
-  function wipe() {
-    return caches.keys().then(function (keys) {
-      var stale = keys.filter(function (k) { return k.indexOf("yzk-" + V + "-") !== 0; });
-      if (!stale.length) return false;
-      return Promise.all(stale.map(function (k) { return caches.delete(k); })).then(function () { return true; });
-    }).catch(function () { return false; });
-  }
-
-  function nukeRegistrations() {
-    if (!("serviceWorker" in navigator)) return Promise.resolve(false);
-    return navigator.serviceWorker.getRegistrations().then(function (rs) {
-      var stale = rs.filter(function (r) {
-        return r.active && r.active.scriptURL.indexOf("v=" + V) === -1;
-      });
-      if (!stale.length) return false;
-      return Promise.all(stale.map(function (r) { return r.unregister(); })).then(function () { return true; });
-    }).catch(function () { return false; });
-  }
+  var RELOAD_KEY = "yzk-boot-reloaded";
 
   function once() {
     try {
-      if (sessionStorage.getItem(RELOADED)) return false;
-      sessionStorage.setItem(RELOADED, "1");
+      if (sessionStorage.getItem(RELOAD_KEY)) return false;
+      sessionStorage.setItem(RELOAD_KEY, "1");
       return true;
     } catch (e) { return false; }
   }
 
-  Promise.all([wipe(), nukeRegistrations()]).then(function (res) {
-    var changed = res[0] || res[1];
-    if (changed && once()) { location.reload(); return; }
-    if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register(new URL("./sw.js?v=" + V, document.baseURI), { scope: "./" })
-      .then(function (reg) {
-        if (reg.waiting && once()) { reg.waiting.postMessage({ type: "skip" }); location.reload(); }
-      })
-      .catch(function () {});
-  });
+  function boot(prefix) {
+    var wipe = caches.keys().then(function (keys) {
+      var stale = keys.filter(function (k) { return k.indexOf(prefix) !== 0; });
+      if (!stale.length) return false;
+      return Promise.all(stale.map(function (k) { return caches.delete(k); }))
+        .then(function () { return true; });
+    }).catch(function () { return false; });
 
-  // Yeni SW devralınca bir kez tazele (eski HTML ekranda kalmasın)
+    var nuke = ("serviceWorker" in navigator)
+      ? navigator.serviceWorker.getRegistrations().then(function (rs) {
+          var stale = rs.filter(function (r) {
+            return r.active && r.active.scriptURL.indexOf(prefix) === -1;
+          });
+          if (!stale.length) return false;
+          return Promise.all(stale.map(function (r) { return r.unregister(); }))
+            .then(function () { return true; });
+        }).catch(function () { return false; })
+      : Promise.resolve(false);
+
+    Promise.all([wipe, nuke]).then(function (res) {
+      if ((res[0] || res[1]) && once()) { location.reload(); return; }
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker
+        .register(new URL("./sw.js?v=" + prefix, document.baseURI), { scope: "./" })
+        .then(function (reg) {
+          if (reg.waiting) { reg.waiting.postMessage({ type: "skip" }); if (once()) location.reload(); }
+        })
+        .catch(function () {});
+    });
+  }
+
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.addEventListener("controllerchange", function () {
       if (once()) location.reload();
     });
   }
+
+  fetch(new URL("./sw.js", document.baseURI), { cache: "no-store" })
+    .then(function (r) { return r.text(); })
+    .then(function (t) {
+      var m = t.match(/yzk-v\d+-/);
+      boot(m ? m[0] : "yzk-v");
+    })
+    .catch(function () { boot("yzk-v"); });
 })();

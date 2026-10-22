@@ -6,7 +6,7 @@
 const SCOPE = new URL(self.registration.scope);
 const BASE = SCOPE.href;
 const SCOPE_NAME = SCOPE.pathname.replace(/^\/|\/$/g, "").replace(/[^a-z0-9-]/gi, "-") || "root";
-const CACHE = `yzk-v26-${SCOPE_NAME}`;
+const CACHE = `yzk-v27-${SCOPE_NAME}`;
 
 const ASSETS = [
   "index.html",
@@ -19,6 +19,9 @@ const ASSETS = [
   "theme-boot.js",
   "boot.js",
   "icon.svg",
+  "icon-192.png",
+  "icon-512.png",
+  "apple-touch-icon.png",
   "404.html",
   "admin.html",
   "admin.js",
