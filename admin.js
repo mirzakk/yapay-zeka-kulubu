@@ -166,18 +166,6 @@
   function getApplications() { return plainApps || []; }
   function isUnlocked() { return !!appKey; }
 
-  async function unlockApplications(keyfileText, pass) {
-    const key = await YZKSecure.unwrapKeyFile(keyfileText, pass);
-    const boxes = rawApps();
-    const out = [];
-    for (const b of boxes) {
-      try { out.push(await YZKSecure.open(key, b)); } catch { /* bozuk kayıt atlanır */ }
-    }
-    appKey = key;
-    plainApps = out;
-    return out.length;
-  }
-
   function lockApplications() { appKey = null; plainApps = null; }
 
   /* Elde anahtar varken tüm zarfları yeniden çöz (yeni içe aktarma sonrası) */
