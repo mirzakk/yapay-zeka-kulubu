@@ -1,0 +1,11 @@
+# Yönetim anahtarı ve parolası ASLA depoya girmez — bu klasörün dışında durur.
+# ../yzk-anahtarlar/yzk-admin-anahtar.json  → başvuruları çözen özel anahtar
+# ../yzk-anahtarlar/yzk-admin-parola.txt    → o parolanın kendisi
+../yzk-anahtarlar/
+private/
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*

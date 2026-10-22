@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests"><meta name="referrer" content="strict-origin-when-cross-origin"><meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="robots" content="noindex,nofollow">
   <title>YZK — Yönetim Paneli</title>
@@ -10,9 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <link rel="stylesheet" href="./admin.css">
-  <script>
-  (function(){try{var t=localStorage.getItem('yzk-theme');if(!t)t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
-  </script>
+  <script src="./theme-boot.js"></script>
 </head>
 <body>
 
@@ -87,7 +86,7 @@
       </button>
 
       <div class="admin-nav-label">SİTE</div>
-      <a class="admin-nav-item" href="./index.html" target="_blank" style="text-decoration:none;">
+      <a class="admin-nav-item" href="./index.html" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
         <span class="nav-icon">🌐</span> Ana Siteyi Gör ↗
       </a>
     </nav>
@@ -155,7 +154,7 @@
         <div class="admin-table-wrap">
           <div class="admin-table-header">
             <h2>Son Başvurular</h2>
-            <button class="btn sm" onclick="switchSection('applications')">Tümünü Gör →</button>
+            <button class="btn sm" data-act="switchSection" data-arg="applications">Tümünü Gör →</button>
           </div>
           <div class="admin-table-overflow">
             <table>
@@ -226,6 +225,26 @@
       <!-- ── APPLICATIONS ── -->
       <section class="admin-section" id="sec-applications">
 
+        <!-- Şifre çözme kilidi: özel anahtar sitede yok, dosyadan yüklenir -->
+        <div id="appsLockBar" class="admin-lockbar">
+          <div class="admin-lockbar-text">
+            <b>Başvurular uçtan uca şifreli</b>
+            <p>Kayıtlar RSA-3072 + AES-256-GCM ile zarflanmış durumda. Okuyabilmek için
+               <code>yzk-admin-anahtar.json</code> dosyasını ve parolasını gir.
+               Dosya/parola olmadan bu veri — site sahibi dahil — açılamaz.</p>
+          </div>
+          <div class="admin-lockbar-actions">
+            <input type="file" id="keyFile" accept="application/json,.json" hidden>
+            <button class="btn sm" id="keyFileBtn" type="button">Anahtar dosyası seç</button>
+            <span id="keyFileName" class="admin-lockfile">dosya seçilmedi</span>
+            <form id="unlockForm" style="display:flex;gap:8px;flex:1 1 260px;min-width:0;">
+              <input type="password" id="keyPass" class="admin-lockpass" placeholder="Anahtar parolası" autocomplete="off">
+              <button class="btn sm primary" id="unlockBtn" type="submit">Kilidi Aç</button>
+            </form>
+          </div>
+          <div id="unlockMsg" class="admin-lockmsg"></div>
+        </div>
+
         <div class="apps-stat-row">
           <div class="apps-stat">
             <b id="appStatTotal">0</b>
@@ -254,6 +273,8 @@
             <h2>Başvurular</h2>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <input type="search" class="admin-search" id="searchApps" placeholder="Ad, e-posta, bölüm ara…">
+              <input type="file" id="importFiles" accept="application/json,.json" multiple hidden>
+              <button class="btn sm" id="importBtn" type="button">Zarf İçe Aktar ↑</button>
               <button class="btn sm" id="exportCsvBtn" type="button">CSV İndir ↓</button>
             </div>
           </div>
@@ -296,7 +317,7 @@
     <h2 id="appDetailTitle">Başvuru Detayı</h2>
     <div id="appDetailBody" style="display:grid;gap:14px;margin-top:18px;"></div>
     <div class="admin-modal-footer">
-      <button type="button" class="btn" onclick="closeModal('appDetailModal')">Kapat</button>
+      <button type="button" class="btn" data-act="closeModal" data-arg="appDetailModal">Kapat</button>
       <button type="button" class="btn" style="color:var(--amber);border-color:rgba(240,149,74,.35);" id="appDetailReject">Reddet</button>
       <button type="button" class="btn primary" id="appDetailApprove">Onayla</button>
     </div>
@@ -340,7 +361,7 @@
         <input type="text" id="pTags" placeholder="RAG, Hukuk, Llama-3">
       </div>
       <div class="admin-modal-footer">
-        <button type="button" class="btn" onclick="closeModal('projectModal')">İptal</button>
+        <button type="button" class="btn" data-act="closeModal" data-arg="projectModal">İptal</button>
         <button type="submit" class="btn primary">Kaydet</button>
       </div>
     </form>
@@ -376,7 +397,7 @@
         <input type="url" id="nUrl" placeholder="https://arxiv.org/abs/…">
       </div>
       <div class="admin-modal-footer">
-        <button type="button" class="btn" onclick="closeModal('newsModal')">İptal</button>
+        <button type="button" class="btn" data-act="closeModal" data-arg="newsModal">İptal</button>
         <button type="submit" class="btn primary">Kaydet</button>
       </div>
     </form>
@@ -402,13 +423,14 @@
         <input type="text" id="mSkills" placeholder="PyTorch, RAG, MLOps">
       </div>
       <div class="admin-modal-footer">
-        <button type="button" class="btn" onclick="closeModal('memberModal')">İptal</button>
+        <button type="button" class="btn" data-act="closeModal" data-arg="memberModal">İptal</button>
         <button type="submit" class="btn primary">Kaydet</button>
       </div>
     </form>
   </div>
 </div>
 
+<script src="./secure.js"></script>
 <script src="./data.js"></script>
 <script src="./admin.js"></script>
 </body>

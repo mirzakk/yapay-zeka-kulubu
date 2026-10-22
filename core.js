@@ -1224,8 +1224,8 @@
     const A = DATA.announce[lang];
     const apps = (() => { try { return JSON.parse(localStorage.getItem('yzk-applications') || '[]'); } catch { return []; } })();
     const total = apps.length;
-    const boardCount = apps.filter(a => a.application_type === 'board').length;
-    const auditCount = apps.filter(a => a.application_type === 'audit').length;
+    const boardCount = apps.filter(a => a.t === 'b').length;
+    const auditCount = apps.filter(a => a.t === 'a').length;
     const deadline = new Date(A.deadline);
     const closed = Date.now() > deadline.getTime();
     const left = Math.max(0, deadline.getTime() - Date.now());
@@ -1444,30 +1444,68 @@
         btn.disabled = false;
         return;
       }
-      const appData = Object.fromEntries(fd.entries());
-      appData.submittedAt = new Date().toISOString();
-      appData.status = 'pending';
-      appData.id = 'app-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+      // ── Girdi temizliği: kontrol karakterleri + uzunluk tavanı ──
+      const C = YZKSecure.clean, M = YZKSecure.cleanMultiline;
+      const type = C(fd.get("application_type"), 12) === 'audit' ? 'audit' : 'board';
+      const appData = {
+        application_type: type,
+        name:          C(fd.get("name"), 80),
+        email:         C(fd.get("email"), 120).toLowerCase(),
+        phone:         C(fd.get("phone"), 24),
+        tc:            C(fd.get("tc"), 11),
+        birthdate:     C(fd.get("birthdate"), 10),
+        student_no:    C(fd.get("student_no"), 24),
+        department:    C(fd.get("department"), 100),
+        university:    C(fd.get("university"), 120),
+        motivation:    M(fd.get("motivation"), 1200),
+        note:          M(fd.get("note"), 1200),
+        submittedAt:   new Date().toISOString(),
+        status:        'pending',
+        id:            'app-' + Date.now().toString(36) + '-' + crypto.getRandomValues(new Uint32Array(1))[0].toString(36)
+      };
+
+      // ── Şifreleme: site kaynağında yalnızca AÇIK anahtar var ──
+      // Özel anahtar sitede yok → depoyu ele geçiren veriyi okuyamaz.
+      let sealed;
+      try {
+        sealed = await YZKSecure.seal(appData, type);
+      } catch (err) {
+        status.style.color = "var(--red)";
+        status.textContent = fmt("Şifreleme başarısız. Tarayıcın WebCrypto desteklemiyor olabilir.", "Encryption failed. Your browser may not support WebCrypto.");
+        btn.disabled = false;
+        return;
+      }
 
       try {
         const existing = JSON.parse(localStorage.getItem('yzk-applications') || '[]');
-        existing.push(appData);
+        existing.push(sealed);              // düz metin YOK
         localStorage.setItem('yzk-applications', JSON.stringify(existing));
       } catch {}
 
-      // Broadcast so admin panel in another tab updates live
       try {
         const ch = new BroadcastChannel('yzk-apps');
-        ch.postMessage({ type: 'new-application', app: appData });
+        ch.postMessage({ type: 'new-application' });
         ch.close();
       } catch {}
 
-      // ponytail: no external service — application stays in localStorage on this device
-      // and reaches the admin panel via BroadcastChannel. Cross-device sync needs a backend.
+      // Zarflı dosyayı indir: kullanıcı kulübe iletebilir, biz de anahtarla açarız.
+      // Dosya şifreli — e-posta/WhatsApp ile gönderilmesi güvenli.
+      try {
+        const blob = new Blob([JSON.stringify(sealed)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'yzk-basvuru-' + appData.id + '.json';
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      } catch {}
+
+      // ponytail: sunucusuz site — kayıt bu cihazda şifreli durur. Çok cihazlı
+      // toplama için sunucu/Formspree gerekir; anahtar dosyası olmadan okunamaz.
 
       form.reset();
       status.style.color = "var(--lime)";
-      status.textContent = fmt("Başvurun alındı. 23 Ekim sonrası e-posta ile dönüş yapacağız.", "Application received. We'll respond by email after October 23.");
+      status.textContent = fmt("Başvurun alındı ve şifrelendi. İndirilen yzk-basvuru-….json dosyasını kulübe iletmen yeterli — içeriği yalnızca kulüp anahtarıyla açılabilir.", "Application received and encrypted. Send the downloaded yzk-basvuru-….json file to the club — only the club key can open it.");
       btn.disabled = false;
 
       // refresh the live counters in place (keeps the success message visible)
@@ -1476,8 +1514,8 @@
         const nums = document.querySelectorAll('.app-stat b');
         if (nums.length === 4) {
           nums[0].textContent = all.length;
-          nums[1].textContent = all.filter(a => a.application_type === 'board').length;
-          nums[2].textContent = all.filter(a => a.application_type === 'audit').length;
+          nums[1].textContent = all.filter(a => a.t === 'b').length;
+          nums[2].textContent = all.filter(a => a.t === 'a').length;
         }
       } catch {}
     });
@@ -1735,25 +1773,19 @@
       const password = document.getElementById('loginPassword').value;
       const errEl    = document.getElementById('loginErrMsg');
 
-      const users = getUsers();
+      const users = await getUsers();
       const user  = users.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (!user) {
         errEl.textContent = fmt("Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.", "No account found with this email address.");
         return;
       }
-      // Password verification (PBKDF2; legacy plaintext auto-upgrades)
+      // Yalnızca PBKDF2. Düz metin parola kabul edilmez (eski kayıtlar sıfırlanır).
       let ok = false;
       if (user.pwHash && user.pwSalt) {
         const { hash } = await hashPassword(password, user.pwSalt);
         ok = hash === user.pwHash;
-      } else if (user.password) {
-        ok = user.password === password;
-        if (ok) {
-          const { hash, salt } = await hashPassword(password);
-          user.pwHash = hash; user.pwSalt = salt; delete user.password;
-          saveUsers(users);
-        }
       }
+      if (user.password) { delete user.password; await saveUsers(users); }   // düz metin kalıntısını sil
       if (!ok) {
         errEl.textContent = fmt("Parola hatalı. Lütfen tekrar deneyin.", "Incorrect password. Please try again.");
         return;
@@ -1772,7 +1804,7 @@
       const dept     = document.getElementById('regDept').value.trim();
       const errEl    = document.getElementById('registerErrMsg');
 
-      const users = getUsers();
+      const users = await getUsers();
       if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
         errEl.textContent = fmt("Bu e-posta zaten kayıtlı.", "This email is already registered.");
         return;
@@ -1780,7 +1812,7 @@
       const { hash, salt } = await hashPassword(password);
       const newUser = { id: Date.now(), name, email, pwHash: hash, pwSalt: salt, dept, createdAt: new Date().toISOString() };
       users.push(newUser);
-      saveUsers(users);
+      await saveUsers(users);
       setCurrentUser({ id: newUser.id, name, email, dept });
       updateNavForUser();
       location.hash = '#/';
@@ -1793,7 +1825,7 @@
   // ── Password hashing (PBKDF2-SHA256, 120k iter) ─────────
   // ponytail: static site — hash only raises the cost of a stolen localStorage dump,
   // it cannot stop a determined client-side attacker. Real auth needs a server.
-  const PBKDF2_ITER = 120000;
+  const PBKDF2_ITER = 210000;
   async function hashPassword(password, saltB64) {
     const enc = new TextEncoder();
     const salt = saltB64
@@ -1806,12 +1838,22 @@
     return { hash: hashB64, salt: saltOut };
   }
 
-  // ── User auth helpers ──
-  function getUsers() {
-    try { return JSON.parse(localStorage.getItem('yzk-users') || '[]'); } catch { return []; }
+  // ── User auth helpers (cihaz-yerel AES-256-GCM zarfı) ──
+  // Depoda düz metin isim/e-posta/parola yok; anahtar IndexedDB'de
+  // non-extractable durur, dökümü alan biri okuyamaz.
+  async function getUsers() {
+    try {
+      const box = JSON.parse(localStorage.getItem('yzk-users') || 'null');
+      if (!box) return [];
+      if (box && box.l === 1) return (await YZKSecure.openLocal(box)) || [];
+      return Array.isArray(box) ? box : [];        // eski düz kayıt
+    } catch { return []; }
   }
-  function saveUsers(users) {
-    try { localStorage.setItem('yzk-users', JSON.stringify(users)); } catch {}
+  async function saveUsers(users) {
+    try {
+      const box = await YZKSecure.sealLocal(users);
+      localStorage.setItem('yzk-users', JSON.stringify(box));
+    } catch {}
   }
   function getCurrentUser() {
     try { return JSON.parse(sessionStorage.getItem('yzk-current-user') || 'null'); } catch { return null; }

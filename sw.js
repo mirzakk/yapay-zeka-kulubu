@@ -1,8 +1,8 @@
 const SCOPE = new URL(self.registration.scope);
 const BASE = SCOPE.href;
 const SCOPE_NAME = SCOPE.pathname.replace(/^\/|\/$/g, "").replace(/[^a-z0-9-]/gi, "-") || "root";
-const CACHE = `yzk-v20-${SCOPE_NAME}`;
-const OLD_CACHES = new RegExp(`^(?:yzk-v(?:[1-9]|1[0-9])|sinyal-v[12])-${SCOPE_NAME}$`, "i");
+const CACHE = `yzk-v24-${SCOPE_NAME}`;
+const OLD_CACHES = new RegExp(`^(?:yzk-v(?:[1-9]|1[0-9]|2[0-3])|sinyal-v[12])-${SCOPE_NAME}$`, "i");
 
 const ASSETS = [
   "index.html",
@@ -11,6 +11,9 @@ const ASSETS = [
   "data.js",
   "metrics.js",
   "manifest.webmanifest",
+  "secure.js",
+  "theme-boot.js",
+  "sw-reg.js",
   "icon.svg",
   "404.html",
   "admin.html",

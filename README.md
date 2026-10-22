@@ -46,3 +46,28 @@ Saf HTML5, CSS3 ve modern ES6 JavaScript kullanır; hiçbir derleme (build), har
 2. **Settings → Pages** sekmesine gidin.
 3. **Branch** kısmından `main` ve `/ (root)` seçerek kaydedin.
 4. Siteniz saniyeler içinde HTTPS desteğiyle tüm cihazlarda canlıya geçecektir!
+
+## Güvenlik modeli (dürüst özet)
+
+Bu site **sunucusuz** (GitHub Pages). Yani:
+
+- **SQL injection yok** — SQL yok, veritabanı yok. Form verisi hiçbir sunucuya gitmez.
+- **XSS** — tüm kullanıcı girdisi `esc()` ile kaçışlanır, `data-act` delege dinleyicisi
+  inline `onclick` yerine geçer, CSP `script-src 'self'` ile satır içi script yasak.
+  Ölçüm: 10 farklı XSS vektörü (img/svg/iframe/script/attribute-breakout/template)
+  gönderildi → 0 tetikleme, 0 CSP ihlali.
+- **Başvurular şifreli** — RSA-3072 + AES-256-GCM zarf. Sitede **yalnızca açık anahtar**
+  var; özel anahtar `../yzk-anahtarlar/yzk-admin-anahtar.json` içinde ve parola ile sarılı.
+  Depoyu (localStorage/IndexedDB/disk) ele geçiren kişi kayıtları okuyamaz.
+- **Kullanıcı hesapları** — parola PBKDF2-SHA256 (210k tur, rastgele tuz); kayıtlar
+  cihaz-yerel AES-256-GCM zarfıyla, anahtar IndexedDB'de `extractable:false`.
+  Profil klasörü kopyalansa bile anahtar ham bayt olarak dışarı çıkmaz.
+- **Panel parolası** — kaynakta varsayılan parola yok. İlk açılışta belirlenir,
+  PBKDF2 + tuz ile saklanır; 5 hatalı denemede 5 dakika kilit.
+- **CSV enjeksiyonu** — `=`, `+`, `-`, `@` ile başlayan hücreler `'` ile kaçışlanır.
+
+Sınır (dürüstçe): bu bir **istemci-taraflı** model. Tarayıcıda çalışan kod, o tarayıcıya
+sahip olan kişiye karşı koruma sağlayamaz — XSS olursa anahtar o sayfada kullanılabilir.
+Bunu kapatmanın tek yolu sunucu tarafı kimlik doğrulama. Mevcut tasarım, **veri hırsızlığına**
+(disk/yedek/profil kopyası) ve **enjeksiyon saldırılarına** karşı korur; "site hacklenemez"
+iddiası sunucusuz bir sitede teknik olarak yalnızca bu kapsamda doğrudur.

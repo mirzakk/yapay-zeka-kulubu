@@ -1,8 +1,12 @@
-/* YZK Admin Panel — Client-Side Logic
- * Password: yzk2026
- * SHA-256 hash computed at runtime via crypto.subtle
- * All data stored in IndexedDB (yzk-admin-db)
- * Applications read from localStorage['yzk-applications']
+/* YZK Yönetim Paneli — istemci mantığı
+ *
+ * GÜVENLİK MODELİ (dürüst özet):
+ *  - Bu kapı bir HIZ KESİCİDİR, gerçek kimlik doğrulama değildir: kaynak kodu
+ *    okuyan biri paneli açabilir. Sunucusuz sitede bunun ötesi yok.
+ *  - Gerçek sınır ŞİFRELEMEDİR: başvurular RSA-3072 + AES-256-GCM ile zarflı,
+ *    özel anahtar sitede YOK. Panel sahibi dahil kimse anahtar dosyası +
+ *    parolası olmadan kayıtları okuyamaz.
+ *  - İçerik (proje/haber/üye) IndexedDB'de, başvurular localStorage'da zarflı.
  */
 
 (function () {
@@ -41,7 +45,9 @@
     setTimeout(() => t.remove(), 3200);
   }
 
+  const MODALS = ['appDetailModal', 'projectModal', 'newsModal', 'memberModal'];
   function closeModal(id) {
+    if (!MODALS.includes(id)) return;
     const el = document.getElementById(id);
     if (el) el.hidden = true;
   }
@@ -150,21 +156,67 @@
     }
   }
 
-  // ── Applications (localStorage) ──────────────────────────
-  function getApplications() {
+  // ── Applications: zarf (şifreli) kayıtlar ────────────────
+  // Depoda YALNIZCA {v,t,iv,ck,ct} zarfları durur. Açık hâli yalnızca
+  // bellekte, anahtar dosyası + parola girildikten sonra oluşur.
+  let plainApps = null;          // çözülmüş kayıtlar (bellek)
+  let appKey = null;             // RSA özel anahtarı (bellek)
+
+  function rawApps() {
     try {
-      return JSON.parse(localStorage.getItem('yzk-applications') || '[]');
+      const arr = JSON.parse(localStorage.getItem('yzk-applications') || '[]');
+      return Array.isArray(arr) ? arr.filter(YZKSecure.isBox) : [];
     } catch { return []; }
   }
 
-  function saveApplications(apps) {
-    localStorage.setItem('yzk-applications', JSON.stringify(apps));
+  function getApplications() { return plainApps || []; }
+  function isUnlocked() { return !!appKey; }
+
+  async function unlockApplications(keyfileText, pass) {
+    const key = await YZKSecure.unwrapKeyFile(keyfileText, pass);
+    const boxes = rawApps();
+    const out = [];
+    for (const b of boxes) {
+      try { out.push(await YZKSecure.open(key, b)); } catch { /* bozuk kayıt atlanır */ }
+    }
+    appKey = key;
+    plainApps = out;
+    return out.length;
+  }
+
+  function lockApplications() { appKey = null; plainApps = null; }
+
+  /* Elde anahtar varken tüm zarfları yeniden çöz (yeni içe aktarma sonrası) */
+  async function decryptAll() {
+    if (!appKey) return 0;
+    const out = [];
+    for (const b of rawApps()) {
+      try { out.push(await YZKSecure.open(appKey, b)); } catch {}
+    }
+    plainApps = out;
+    return out.length;
+  }
+
+  /* Değişikliği yeniden şifrele (onay/red) */
+  async function persistApplications(list) {
+    if (!appKey) throw new Error('kilit kapalı');
+    const boxes = [];
+    for (const a of list) {
+      const type = a.application_type === 'audit' ? 'audit' : a.application_type === 'board' ? 'board' : 'member';
+      boxes.push(await YZKSecure.seal(a, type));
+    }
+    localStorage.setItem('yzk-applications', JSON.stringify(boxes));
+    plainApps = list;
   }
 
   // ── Section Switching ─────────────────────────────────────
   let currentSection = 'dashboard';
 
+  const SECTIONS = ['dashboard', 'projects', 'news', 'members', 'applications'];
+
   function switchSection(name) {
+    // Beyaz liste: data-arg üzerinden gelen değer CSS seçicisine girmesin
+    if (!SECTIONS.includes(name)) return;
     currentSection = name;
     $$('.admin-nav-item').forEach(btn => btn.classList.remove('active'));
     const btn = $(`.admin-nav-item[data-section="${name}"]`);
@@ -209,7 +261,7 @@
       dbGetAll(DB, 'news'),
       dbGetAll(DB, 'members')
     ]);
-    const apps = getApplications();
+    const apps = rawApps();
 
     setText('statProjects', projects.length);
     setText('statNews', news.length);
@@ -221,6 +273,8 @@
     if (tbody) {
       if (apps.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:28px;">Henüz başvuru yok.</td></tr>';
+      } else if (!isUnlocked()) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:28px;">🔒 ${apps.length} şifreli başvuru — Başvurular sekmesinde kilidi aç.</td></tr>`;
       } else {
         tbody.innerHTML = apps.slice(-5).reverse().map(a => `
           <tr>
@@ -270,15 +324,15 @@
         <td style="font-size:11px;color:var(--dim);">${esc((p.tags || '').substring(0,40))}${p.tags && p.tags.length > 40 ? '…' : ''}</td>
         <td>
           <div class="table-actions">
-            <button class="btn sm" onclick="editProject(${p.id})">Düzenle</button>
-            <button class="btn sm danger" onclick="deleteProject(${p.id})">Sil</button>
+            <button class="btn sm" data-act="editProject" data-arg="${p.id}">Düzenle</button>
+            <button class="btn sm danger" data-act="deleteProject" data-arg="${p.id}">Sil</button>
           </div>
         </td>
       </tr>
     `).join('');
   }
 
-  window.editProject = function(id) {
+  function editProject(id) {
     const p = allProjects.find(x => x.id === id);
     if (!p) return;
     $('#projectModalTitle').textContent = 'Projeyi Düzenle';
@@ -320,18 +374,18 @@
         <td style="font-size:12px;"><span class="badge badge-active">${esc(n.cat || '—')}</span></td>
         <td style="color:var(--muted);font-size:12px;">${esc(n.src || '—')}</td>
         <td style="color:var(--muted);font-size:12px;">${esc((n.why || '').substring(0,60))}${(n.why||'').length > 60 ? '…' : ''}</td>
-        <td>${n.url ? `<a href="${esc(n.url)}" target="_blank" rel="noopener" style="font:600 11px var(--mono);">↗ Kaynak</a>` : '—'}</td>
+        <td>${n.url ? `<a href="${YZKSecure.safeHref(n.url)}" target="_blank" rel="noopener" style="font:600 11px var(--mono);">↗ Kaynak</a>` : '—'}</td>
         <td>
           <div class="table-actions">
-            <button class="btn sm" onclick="editNews(${n.id})">Düzenle</button>
-            <button class="btn sm danger" onclick="deleteNews(${n.id})">Sil</button>
+            <button class="btn sm" data-act="editNews" data-arg="${n.id}">Düzenle</button>
+            <button class="btn sm danger" data-act="deleteNews" data-arg="${n.id}">Sil</button>
           </div>
         </td>
       </tr>
     `).join('');
   }
 
-  window.editNews = function(id) {
+  function editNews(id) {
     const n = allNews.find(x => x.id === id);
     if (!n) return;
     $('#newsModalTitle').textContent = 'Haberi Düzenle';
@@ -373,15 +427,15 @@
         <td style="color:var(--muted);font-size:12px;">${esc((m.skills || '').substring(0,50))}</td>
         <td>
           <div class="table-actions">
-            <button class="btn sm" onclick="editMember(${m.id})">Düzenle</button>
-            <button class="btn sm danger" onclick="deleteMember(${m.id})">Sil</button>
+            <button class="btn sm" data-act="editMember" data-arg="${m.id}">Düzenle</button>
+            <button class="btn sm danger" data-act="deleteMember" data-arg="${m.id}">Sil</button>
           </div>
         </td>
       </tr>
     `).join('');
   }
 
-  window.editMember = function(id) {
+  function editMember(id) {
     const m = allMembers.find(x => x.id === id);
     if (!m) return;
     $('#memberModalTitle').textContent = 'Üyeyi Düzenle';
@@ -405,18 +459,35 @@
   let appsQuery = '';
 
   function renderApplications() {
-    const all   = getApplications();
     const tbody = $('#appsTable');
     if (!tbody) return;
 
-    // counters
-    const today = new Date().toDateString();
+    const sealedCount = rawApps().length;
+    const all = getApplications();
+    const unlocked = isUnlocked();
+
+    // Sayaçlar: kilit kapalıyken yalnızca zarfın açık alanından (t) sayılır
     const setB = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    setB('appStatTotal',   all.length);
-    setB('appStatBoard',   all.filter(a => a.application_type === 'board').length);
-    setB('appStatAudit',   all.filter(a => a.application_type === 'audit').length);
-    setB('appStatPending', all.filter(a => (a.status || 'pending') === 'pending').length);
-    setB('appStatToday',   all.filter(a => a.submittedAt && new Date(a.submittedAt).toDateString() === today).length);
+    const today = new Date().toDateString();
+    const rawList = unlocked ? all : rawApps();
+    const typeOf = x => unlocked ? x.application_type : (x.t === 'b' ? 'board' : x.t === 'a' ? 'audit' : 'member');
+
+    setB('appStatTotal', sealedCount);
+    setB('appStatBoard', rawList.filter(x => typeOf(x) === 'board').length);
+    setB('appStatAudit', rawList.filter(x => typeOf(x) === 'audit').length);
+    setB('appStatPending', unlocked ? all.filter(x => (x.status || 'pending') === 'pending').length : '—');
+    setB('appStatToday', unlocked ? all.filter(x => x.submittedAt && new Date(x.submittedAt).toDateString() === today).length : '—');
+
+    $('#appsLockBar').hidden = unlocked;
+
+    if (!unlocked) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="admin-empty">
+        <div class="admin-empty-icon">🔒</div>
+        <p><b>${sealedCount}</b> şifreli başvuru bekliyor.</p>
+        <p style="font-size:12px;margin-top:6px;">Yukarıdan anahtar dosyasını ve parolasını gir; kayıtlar bu cihazda çözülür, hiçbir yere gönderilmez.</p>
+      </div></td></tr>`;
+      return;
+    }
 
     let apps = all;
 
@@ -438,9 +509,9 @@
     }
 
     tbody.innerHTML = apps.map(a => {
-      const idx = all.indexOf(a);
       const t   = a.application_type === 'board' ? 'Yönetim' : a.application_type === 'audit' ? 'Denetim' : 'Üyelik';
       const dt  = a.submittedAt ? new Date(a.submittedAt).toLocaleString('tr-TR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+      const id  = esc(a.id);
       return `
       <tr>
         <td><b style="color:var(--fg);">${esc(a.name || '—')}</b>${a.phone ? `<div style="color:var(--dim);font-size:11px;">${esc(a.phone)}</div>` : ''}</td>
@@ -451,9 +522,9 @@
         <td><span class="badge ${statusBadgeClass(a.status || 'pending')}">${esc(appStatusLabel(a.status || 'pending'))}</span></td>
         <td>
           <div class="table-actions">
-            <button class="btn sm" onclick="viewApp(${idx})">Detay</button>
-            <button class="btn sm" style="color:var(--lime);border-color:rgba(201,224,92,0.3);" onclick="approveApp(${idx})">✓</button>
-            <button class="btn sm danger" onclick="rejectApp(${idx})">✕</button>
+            <button class="btn sm" data-act="viewApp" data-arg="${id}">Detay</button>
+            <button class="btn sm" style="color:var(--lime);border-color:rgba(201,224,92,0.3);" data-act="approveApp" data-arg="${id}">✓</button>
+            <button class="btn sm danger" data-act="rejectApp" data-arg="${id}">✕</button>
           </div>
         </td>
       </tr>`;
@@ -461,12 +532,12 @@
   }
 
   // ── Detail modal ─────────────────────────────────────────
-  let currentAppIdx = -1;
-  window.viewApp = function (i) {
+  let currentAppId = null;
+  function viewApp(id) {
     const apps = getApplications();
-    const a = apps[i];
+    const a = apps.find(x => x.id === id);
     if (!a) return;
-    currentAppIdx = i;
+    currentAppId = id;
     const pos = a.application_type === 'board' ? 'Yönetim Kurulu' : a.application_type === 'audit' ? 'Denetim Kurulu' : 'Üyelik';
     const row = (label, val, mono) => val
       ? `<div class="app-detail-row"><span>${esc(label)}</span><div${mono ? ' style="font-family:var(--mono);font-size:12px;"' : ''}>${esc(val)}</div></div>`
@@ -489,25 +560,31 @@
     `;
     $('#appDetailModal').hidden = false;
   };
-  $('#appDetailApprove')?.addEventListener('click', () => { if (currentAppIdx >= 0) { approveApp(currentAppIdx); closeModal('appDetailModal'); } });
-  $('#appDetailReject')?.addEventListener('click',  () => { if (currentAppIdx >= 0) { rejectApp(currentAppIdx);  closeModal('appDetailModal'); } });
+  $('#appDetailApprove')?.addEventListener('click', () => { if (currentAppId) { approveApp(currentAppId); closeModal('appDetailModal'); } });
+  $('#appDetailReject')?.addEventListener('click',  () => { if (currentAppId) { rejectApp(currentAppId);  closeModal('appDetailModal'); } });
 
-  window.approveApp = function (i) {
+  async function approveApp(id) { await setAppStatus(id, 'approved', 'Başvuru onaylandı.', 'success'); }
+  async function rejectApp(id)  { await setAppStatus(id, 'rejected', 'Başvuru reddedildi.', 'error'); }
+
+  async function setAppStatus(id, status, msg, kind) {
+    if (!isUnlocked()) { showToast('Önce anahtar dosyası ile kilidi aç.', 'error'); return; }
     const apps = getApplications();
-    if (apps[i]) { apps[i].status = 'approved'; saveApplications(apps); renderApplications(); renderDashboard(); showToast('Başvuru onaylandı.', 'success'); }
-  };
-  window.rejectApp = function (i) {
-    const apps = getApplications();
-    if (apps[i]) { apps[i].status = 'rejected'; saveApplications(apps); renderApplications(); renderDashboard(); showToast('Başvuru reddedildi.', 'error'); }
-  };
+    const a = apps.find(x => x.id === id);
+    if (!a) return;
+    a.status = status;
+    a.decidedAt = new Date().toISOString();
+    try { await persistApplications(apps); } catch { showToast('Kayıt yazılamadı.', 'error'); return; }
+    renderApplications(); renderDashboard(); showToast(msg, kind);
+  }
 
   // ── CSV export ───────────────────────────────────────────
   $('#exportCsvBtn')?.addEventListener('click', () => {
+    if (!isUnlocked()) { showToast('Önce anahtar dosyası ile kilidi aç.', 'error'); return; }
     const apps = getApplications();
     if (!apps.length) { showToast('Dışa aktarılacak başvuru yok.', 'error'); return; }
     const cols = ['id','submittedAt','application_type','status','name','tc','birthdate','student_no','email','phone','department','university','motivation','note'];
     const head = ['Kayıt No','Tarih','Tür','Durum','Ad Soyad','T.C. Kimlik','Doğum Tarihi','Öğrenci No','E-posta','Telefon','Bölüm/Sınıf','Üniversite','Motivasyon','Ek Not'];
-    const esc_ = v => `"${String(v == null ? '' : v).replace(/"/g,'""')}"`;
+    const esc_ = v => { const s = String(v == null ? '' : v); const safe = /^[=+\-@\t\r]/.test(s) ? "'" + s : s; return `"${safe.replace(/"/g,'""')}"`; };
     const rows = [head.map(esc_).join(',')].concat(
       apps.map(a => cols.map(c => esc_(c === 'application_type'
         ? (a[c]==='board'?'Yönetim':a[c]==='audit'?'Denetim':'Üyelik')
@@ -522,6 +599,34 @@
     document.body.appendChild(link); link.click(); link.remove();
     URL.revokeObjectURL(url);
     showToast(apps.length + ' başvuru CSV olarak indirildi.', 'success');
+  });
+
+  // ── Zarf içe aktarma (şifreli başvuru dosyaları) ─────────
+  $('#importBtn')?.addEventListener('click', () => $('#importFiles').click());
+
+  $('#importFiles')?.addEventListener('change', async e => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const boxes = rawApps();
+    const seen = new Set(boxes.map(b => b.ct));
+    let added = 0, skipped = 0;
+    for (const f of files) {
+      try {
+        const obj = JSON.parse(await f.text());
+        const one = Array.isArray(obj) ? obj : [obj];
+        for (const b of one) {
+          if (!YZKSecure.isBox(b)) { skipped++; continue; }
+          if (seen.has(b.ct)) { skipped++; continue; }
+          seen.add(b.ct); boxes.push(b); added++;
+        }
+      } catch { skipped++; }
+    }
+    localStorage.setItem('yzk-applications', JSON.stringify(boxes));
+    e.target.value = '';
+    showToast(added + ' zarf eklendi' + (skipped ? ', ' + skipped + ' atlandı' : '') + '.', added ? 'success' : 'error');
+    if (isUnlocked()) { await decryptAll(); }
+    renderApplications();
+    renderDashboard();
   });
 
   // ── Filters & search wiring ──────────────────────────────
@@ -698,6 +803,19 @@
     btn.addEventListener('click', () => switchSection(btn.dataset.section));
   });
 
+  /* Tek delege dinleyici — tüm data-act düğmeleri. Inline onclick yok (CSP). */
+  const ACTIONS = { editProject, deleteProject, editNews, deleteNews, editMember, deleteMember, viewApp, approveApp, rejectApp, switchSection, closeModal };
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const fn = ACTIONS[el.dataset.act];
+    if (typeof fn !== 'function') return;
+    e.preventDefault();
+    const raw = el.dataset.arg;
+    const arg = raw != null && raw !== '' && /^\d+$/.test(raw) ? Number(raw) : raw;
+    fn(arg);
+  });
+
   // Logout
   $('#logoutBtn')?.addEventListener('click', () => {
     sessionStorage.removeItem(SESSION_KEY);
@@ -708,6 +826,40 @@
   $('#sidebarToggle')?.addEventListener('click', () => {
     $('#adminSidebar').classList.toggle('open');
   });
+
+  // ── Şifre çözme kilidi (anahtar dosyası + parola) ────────
+  let keyFileText = '';
+  $('#keyFile')?.addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    keyFileText = await f.text();
+    $('#keyFileName').textContent = f.name;
+    $('#unlockMsg').textContent = '';
+  });
+  $('#keyFileBtn')?.addEventListener('click', () => $('#keyFile').click());
+
+  $('#unlockForm')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = $('#unlockMsg');
+    if (!keyFileText) { msg.style.color = 'var(--red)'; msg.textContent = 'Önce anahtar dosyasını seç.'; return; }
+    const pass = $('#keyPass').value;
+    if (!pass) { msg.style.color = 'var(--red)'; msg.textContent = 'Anahtar parolasını gir.'; return; }
+    msg.style.color = 'var(--dim)'; msg.textContent = 'Çözülüyor…';
+    try {
+      const n = await unlockApplications(keyFileText, pass);
+      msg.style.color = 'var(--lime)';
+      msg.textContent = n + ' başvuru çözüldü. Bu cihazın belleğinde tutuluyor.';
+      $('#keyPass').value = '';
+      renderApplications();
+      renderDashboard();
+    } catch (err) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = 'Açılamadı: dosya bozuk ya da parola yanlış.';
+      lockApplications();
+    }
+  });
+
+  // Sekme kapanınca anahtar bellekten düşer (sessionStorage'da tutulmuyor)
 
   // Clock
   function updateClock() {
@@ -729,15 +881,49 @@
   }
   function setLock(v) { try { localStorage.setItem(LOCK_KEY, JSON.stringify(v)); } catch {} }
 
+  const PBKDF2_ITER = 210000;
+
+  function b64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+  function unb64(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+
+  async function derive(pass, saltB64) {
+    const salt = saltB64 ? unb64(saltB64) : crypto.getRandomValues(new Uint8Array(16));
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: PBKDF2_ITER, hash: 'SHA-256' }, key, 256);
+    return { hash: b64(bits), salt: saltB64 || b64(salt) };
+  }
+
+  /* Sabit zamanlı karşılaştırma */
+  function eq(a, b) {
+    if (a.length !== b.length) return false;
+    let d = 0;
+    for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return d === 0;
+  }
+
+  /* Kayıtlı kimlik yoksa null → ilk kurulum gerekir. Kaynakta parola YOK. */
+  function getCred() {
+    try {
+      const c = JSON.parse(localStorage.getItem(PASS_HASH_KEY) || 'null');
+      return c && c.h && c.s ? c : null;
+    } catch { return null; }
+  }
+
+  async function setPassword(pass) {
+    const d = await derive(pass);
+    localStorage.setItem(PASS_HASH_KEY, JSON.stringify({ h: d.hash, s: d.salt, at: Date.now() }));
+  }
+
   async function attemptLogin(pass) {
     const lock = getLock();
-    if (lock.until && Date.now() < lock.until) return { ok: false, locked: true, mins: Math.ceil((lock.until - Date.now()) / 60000) };
+    if (lock.until && Date.now() < lock.until) {
+      return { ok: false, locked: true, mins: Math.ceil((lock.until - Date.now()) / 60000) };
+    }
+    const cred = getCred();
+    if (!cred) return { ok: false, uninitialized: true };
 
-    const stored = localStorage.getItem(PASS_HASH_KEY);
-    const inputHash = await sha256(pass);
-    const expected = stored || await sha256('yzk2026');
-
-    if (inputHash !== expected) {
+    const { hash } = await derive(pass, cred.s);
+    if (!eq(hash, cred.h)) {
       const n = (lock.n || 0) + 1;
       if (n >= MAX_TRIES) {
         setLock({ n: 0, until: Date.now() + LOCK_MS });
@@ -746,8 +932,6 @@
       setLock({ n, until: 0 });
       return { ok: false, remaining: MAX_TRIES - n };
     }
-
-    if (!stored) localStorage.setItem(PASS_HASH_KEY, expected);
     setLock({ n: 0, until: 0 });
     return { ok: true };
   }
@@ -764,6 +948,9 @@
     $('#loginScreen').style.display = 'flex';
     $('#adminPanel').hidden = true;
 
+    // Hiç parola yoksa: ilk kurulum (kaynakta varsayılan parola yok)
+    if (!getCred()) showSetup();
+
     $('#loginForm').addEventListener('submit', async e => {
       e.preventDefault();
       const pass = $('#adminPass').value;
@@ -771,17 +958,58 @@
       if (res.ok) {
         sessionStorage.setItem(SESSION_KEY, 'authenticated');
         await startPanel();
+      } else if (res.uninitialized) {
+        showSetup();
       } else {
         const errEl = $('#loginError');
         if (errEl) {
           errEl.textContent = res.locked
             ? `Çok fazla hatalı deneme. ${res.mins} dakika sonra tekrar deneyin.`
             : `Parola hatalı. Kalan hak: ${res.remaining}`;
+          errEl.style.display = 'block';
         }
-        if (errEl) errEl.style.display = 'block';
         $('#adminPass').value = '';
         $('#adminPass').focus();
       }
+    });
+  }
+
+  /* İlk kurulum: yönetici kendi parolasını belirler. Parola cihazda
+     PBKDF2-SHA256 (210k) + rastgele tuz ile saklanır. */
+  function showSetup() {
+    if ($('#setupBox')) return;
+    const card = $('.admin-login-card');
+    if (!card) return;
+    $('#loginForm').hidden = true;
+    const box = document.createElement('form');
+    box.id = 'setupBox';
+    box.innerHTML = `
+      <p style="font:600 11px var(--mono);letter-spacing:.12em;color:var(--cyan);margin-bottom:10px;">İLK KURULUM</p>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px;">
+        Bu panelde henüz parola yok. Yönetici parolasını şimdi belirle.
+        En az 12 karakter kullan; bu parola bu cihazda saklanır ve kaynağa yazılmaz.
+      </p>
+      <div class="admin-field">
+        <label for="newPass">YENİ PAROLA</label>
+        <input type="password" id="newPass" minlength="12" required autocomplete="new-password" placeholder="en az 12 karakter">
+      </div>
+      <div class="admin-field">
+        <label for="newPass2">PAROLA (TEKRAR)</label>
+        <input type="password" id="newPass2" minlength="12" required autocomplete="new-password">
+      </div>
+      <div class="login-error" id="setupErr"></div>
+      <button type="submit" class="btn primary" style="width:100%;justify-content:center;">Parolayı Kaydet →</button>
+    `;
+    card.appendChild(box);
+    box.addEventListener('submit', async e => {
+      e.preventDefault();
+      const p1 = $('#newPass').value, p2 = $('#newPass2').value, err = $('#setupErr');
+      if (p1.length < 12) { err.textContent = 'En az 12 karakter olmalı.'; err.style.display = 'block'; return; }
+      if (p1 !== p2) { err.textContent = 'Parolalar eşleşmiyor.'; err.style.display = 'block'; return; }
+      await setPassword(p1);
+      box.remove();
+      $('#loginForm').hidden = false;
+      $('#adminPass').focus();
     });
   }
 

@@ -2,6 +2,9 @@
 <html lang="tr" data-theme="dark">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="dark light">
 <title>Yapay Zekâ Kulübü · YZK</title>
@@ -16,16 +19,7 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="stylesheet" href="./style.css">
-<script>
-/* Tema: ilk boyamadan önce uygula (FOUC yok) */
-(function () {
-  try {
-    var t = localStorage.getItem('yzk-theme');
-    if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', t);
-  } catch (e) {}
-})();
-</script>
+<script src="./theme-boot.js"></script>
 </head>
 <body>
 <div id="scroll-progress" class="scroll-progress" aria-hidden="true"></div>
@@ -186,13 +180,10 @@
   </div>
 </div>
 
+<script src="secure.js"></script>
 <script src="data.js"></script>
 <script src="metrics.js"></script>
 <script src="core.js"></script>
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register(new URL("./sw.js", document.baseURI)).catch(() => {});
-}
-</script>
+<script src="./sw-reg.js"></script>
 </body>
 </html>
