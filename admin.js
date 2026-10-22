@@ -913,13 +913,16 @@
       const raw = await YZKSecure.unwrapKeyFileRaw(keyFileText, filePass);
       const vault = await YZKSecure.makeVault(raw, newPass);
       const put = await YZKSync.vaultPut(vault, false);
-      if (!put.ok) { lockMsg('Sunucuya yazılamadı: ' + put.reason, 'var(--red)'); return; }
       appKey = await YZKSecure.openVault(vault, newPass);
       vaultState = vault;
       await setPassword(newPass);            // panel girişi de aynı parola olsun
       await decryptAll();
       $('#keyFilePass').value = ''; $('#newAdminPass').value = '';
-      lockMsg('Kurulum tamam. Bundan sonra yalnızca parola yeterli.', 'var(--lime)');
+      if (put.ok) {
+        lockMsg('Kurulum tamam (' + (put.where === 'config' ? 'kasa: /config' : 'kasa: applications') + '). Bundan sonra her cihazda yalnızca parola yeterli.', 'var(--lime)');
+      } else {
+        lockMsg('Bu cihazda açıldı, ancak kasa sunucuya yazılamadı (' + put.reason + '). Firebase → Rules: .write izni ver, sonra kurulumu tekrarla. Diğer cihazlarda parola çalışmaz.', 'var(--amber)');
+      }
       refreshLockUI(); renderApplications(); renderDashboard();
     } catch (e) {
       lockMsg('Açılamadı: dosya parolası yanlış ya da dosya bozuk.', 'var(--red)');

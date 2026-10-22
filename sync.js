@@ -166,27 +166,56 @@
   }
 
   async function vaultGet() {
+    // 1) /config/vault.json
     var u = vaultUrl();
-    if (!u) return null;
+    if (u) {
+      try {
+        var r = await fetch(u, { cache: "no-store" });
+        if (r.ok) {
+          var v = await r.json();
+          if (v && v.v === 1 && v.wrapped) return v;
+        }
+      } catch (e) {}
+    }
+    // 2) Yedek yol: /applications içinde {k:"vault"} kaydı (yalnızca applications yazılabilirse)
     try {
-      var r = await fetch(u, { cache: "no-store" });
-      if (!r.ok) return null;
-      var v = await r.json();
-      return v && v.v === 1 && v.wrapped ? v : null;
-    } catch (e) { return null; }
+      var rows = await fetch(CFG.rtdb.url.replace(/\/+$/, "") + "/applications.json", { cache: "no-store" });
+      if (!rows.ok) return null;
+      var obj = await rows.json();
+      if (!obj || typeof obj !== "object") return null;
+      for (var k in obj) {
+        var it = obj[k];
+        if (it && it.k === "vault" && typeof it.d === "string") {
+          try { var parsed = JSON.parse(it.d); if (parsed && parsed.v === 1 && parsed.wrapped) return parsed; } catch (e2) {}
+        }
+      }
+    } catch (e3) {}
+    return null;
   }
 
   async function vaultPut(vault, existing) {
     var u = vaultUrl();
     if (!u) return { ok: false, reason: "provider" };
+    // 1) /config/vault.json
     try {
       var r = await fetch(u, {
-        method: existing ? "PUT" : "PUT",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(vault)
       });
-      return { ok: r.ok, reason: r.ok ? "" : "http " + r.status };
-    } catch (e) { return { ok: false, reason: "network" }; }
+      if (r.ok) return { ok: true, where: "config" };
+      if (r.status !== 401 && r.status !== 403) return { ok: false, reason: "http " + r.status };
+    } catch (e) {}
+    // 2) Yedek: /applications içine {k:"vault"} olarak yaz (applications yazılabilirse)
+    try {
+      var r2 = await fetch(CFG.rtdb.url.replace(/\/+$/, "") + "/applications.json", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ v: 0, k: "vault", d: JSON.stringify(vault), at: Date.now() })
+      });
+      if (r2.ok) return { ok: true, where: "applications" };
+      return { ok: false, reason: "http " + r2.status };
+    } catch (e2) { return { ok: false, reason: "network" }; }
   }
 
   /* Yerel depoyla birleştir (ct ile tekilleştir) */
@@ -200,7 +229,7 @@
     local.forEach(function (b) { seen[b.ct] = 1; });
     var added = 0;
     p.rows.forEach(function (r) {
-      if (!r || !r.ct || seen[r.ct]) return;
+      if (!r || r.k === "vault" || r.v === 0 || !r.ct || !r.ck || seen[r.ct]) return;
       seen[r.ct] = 1;
       local.push({ v: 1, t: r.t || "m", iv: r.iv, ck: r.ck, ct: r.ct });
       added++;
