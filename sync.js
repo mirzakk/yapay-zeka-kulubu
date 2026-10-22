@@ -10,7 +10,8 @@
  *
  * KURULUM: provider + ilgili kimlik bilgilerini doldur (sync-kurulum.md).
  *   provider: "supabase" → url + key
- *   provider: "firebase" → projectId + apiKey
+ *   provider: "firebase" → projectId + apiKey (Firestore)
+ *   provider: "rtdb"     → url (Realtime Database)
  * Boşsa senkron kapalıdır; site eskisi gibi çalışır (şifreli dosya indirme).
  */
 (function (global) {
@@ -19,7 +20,8 @@
   var CFG = {
     provider: "",                       // "supabase" | "firebase"
     supabase: { url: "", key: "", table: "applications" },
-    firebase: { projectId: "", apiKey: "", collection: "applications" }
+    firebase: { projectId: "", apiKey: "", collection: "applications" },
+    rtdb: { url: "", path: "applications" }
   };
 
   // Test/geliştirme için tarayıcıdan geçici override
@@ -30,6 +32,7 @@
     if (g("key")) CFG.supabase.key = g("key");
     if (g("pid")) CFG.firebase.projectId = g("pid");
     if (g("apikey")) CFG.firebase.apiKey = g("apikey");
+    if (g("rtdb")) CFG.rtdb.url = g("rtdb");
   } catch (e) {}
 
   function enabled() {
@@ -38,6 +41,9 @@
     }
     if (CFG.provider === "firebase") {
       return CFG.firebase.projectId.length > 2 && CFG.firebase.apiKey.length > 20;
+    }
+    if (CFG.provider === "rtdb") {
+      return /^https?:\/\//.test(CFG.rtdb.url);
     }
     return false;
   }
@@ -52,6 +58,11 @@
       "Authorization": "Bearer " + CFG.supabase.key,
       "Content-Type": "application/json"
     };
+  }
+
+  /* ---------- Firebase Realtime Database (REST) ---------- */
+  function rtdbUrl() {
+    return CFG.rtdb.url.replace(/\/+$/, "") + "/" + CFG.rtdb.path + ".json";
   }
 
   /* ---------- Firebase (Firestore REST) ---------- */
@@ -95,6 +106,12 @@
           body: JSON.stringify({ v: box.v, t: box.t, iv: box.iv, ck: box.ck, ct: box.ct })
         });
         if (res.status === 409) return { ok: true, duplicate: true };
+      } else if (CFG.provider === "rtdb") {
+        res = await fetch(rtdbUrl(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ v: box.v, t: box.t, iv: box.iv, ck: box.ck, ct: box.ct })
+        });
       } else {
         res = await fetch(fbUrl(), {
           method: "POST",
@@ -120,6 +137,13 @@
         if (!r1.ok) return { ok: false, reason: "http " + r1.status, rows: [] };
         var rows1 = await r1.json();
         return { ok: true, rows: Array.isArray(rows1) ? rows1 : [] };
+      }
+      if (CFG.provider === "rtdb") {
+        var r3 = await fetch(rtdbUrl());
+        if (!r3.ok) return { ok: false, reason: "http " + r3.status, rows: [] };
+        var obj = await r3.json();
+        var vals = obj && typeof obj === "object" ? Object.keys(obj).map(function (k) { return obj[k]; }) : [];
+        return { ok: true, rows: vals.filter(function (x) { return x && x.ct; }) };
       }
       var r2 = await fetch(fbUrl() + "&pageSize=" + n);
       if (!r2.ok) return { ok: false, reason: "http " + r2.status, rows: [] };
