@@ -178,8 +178,9 @@
     for (const b of rawApps()) {
       try {
         const a = await YZKSecure.open(appKey, b);
-        a._key = b._key || '';
-        if (b.status) { a.status = b.status; a.decidedAt = b.decidedAt || null; }
+        const smap = (window.YZKSync && YZKSync.statuses) ? YZKSync.statuses() : {};
+        const ev = smap[a.id];                        // sunucudaki karar (varsa) kazanır
+        if (ev && ev.s) { a.status = ev.s; a.decidedAt = ev.at || null; }
         out.push(a);
       } catch { failedCount++; }
     }
@@ -582,23 +583,25 @@
   async function setAppStatus(id, status, msg, kind) {
     if (!isUnlocked()) { showToast('Önce yönetici parolası ile kilidi aç.', 'error'); return; }
     const apps = getApplications();
-    const a = apps.find(x => x.id === id || x._key === id);
+    const a = apps.find(x => x.id === id);
     if (!a) return;
 
-    // 1) Sunucuya karar olayı yaz (paylaşılan, kalıcı)
+    // 1) Sunucuya karar olayı yaz — ref = başvuru id'si (şifreli metnin içinde, cihazdan bağımsız)
     let synced = false;
-    if (a._key && window.YZKSync && YZKSync.setStatus) {
-      const r = await YZKSync.setStatus(a._key, status);
+    if (window.YZKSync && YZKSync.setStatus) {
+      const r = await YZKSync.setStatus(a.id, status);
       synced = r.ok;
-      if (!r.ok) { showToast('Sunucuya yazılamadı (' + r.reason + '). Karar yalnızca bu cihazda.', 'error'); }
+      if (!r.ok) showToast('Sunucuya yazılamadı (' + r.reason + '). Karar yalnızca bu cihazda.', 'error');
     }
 
-    // 2) Yerel görünümü güncelle
+    // 2) Yerel görünüm + yerel karar haritası
     a.status = status;
     a.decidedAt = Date.now();
-    const boxes = rawApps();
-    const b = boxes.find(x => x.ct && a.ct === x.ct) || boxes.find(x => x._key && x._key === a._key);
-    if (b) { b.status = status; b.decidedAt = a.decidedAt; localStorage.setItem('yzk-applications', JSON.stringify(boxes)); }
+    try {
+      const smap = (window.YZKSync && YZKSync.statuses) ? YZKSync.statuses() : {};
+      smap[a.id] = { s: status, at: a.decidedAt };
+      localStorage.setItem('yzk-status', JSON.stringify(smap));
+    } catch {}
 
     renderApplications(); renderDashboard();
     if (synced) showToast(msg, kind);
