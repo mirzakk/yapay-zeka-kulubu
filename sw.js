@@ -1,8 +1,12 @@
+/* YZK service worker — v26
+ *
+ * KURAL: gezinme (navigation) HER ZAMAN ağdan gelir; önbellek yalnızca
+ * çevrimdışı yedek. Eski HTML bir daha "yapışıp" kalmaz.
+ */
 const SCOPE = new URL(self.registration.scope);
 const BASE = SCOPE.href;
 const SCOPE_NAME = SCOPE.pathname.replace(/^\/|\/$/g, "").replace(/[^a-z0-9-]/gi, "-") || "root";
-const CACHE = `yzk-v25-${SCOPE_NAME}`;
-const OLD_CACHES = new RegExp(`^(?:yzk-v(?:[1-9]|1[0-9]|2[0-4])|sinyal-v[12])-${SCOPE_NAME}$`, "i");
+const CACHE = `yzk-v26-${SCOPE_NAME}`;
 
 const ASSETS = [
   "index.html",
@@ -25,37 +29,62 @@ const ASSETS = [
   "images/disiplin-muhendislik.webp",
   "images/disiplin-tasarim.webp",
   "images/disiplin-tip.webp"
-].map(path => new URL(path, BASE).href);
+].map(p => new URL(p, BASE).href);
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
-});
-
-self.addEventListener("activate", e => {
   e.waitUntil(
-    caches.keys().then(ks => Promise.all(ks.filter(k => OLD_CACHES.test(k)).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+    caches.open(CACHE)
+      .then(c => Promise.all(ASSETS.map(u => c.add(u).catch(() => null))))
+      .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener("fetch", e => {
-  const request = e.request;
-  if (request.method !== "GET" || new URL(request.url).origin !== new URL(BASE).origin || !request.url.startsWith(BASE)) return;
-  const url = new URL(request.url);
-  const isAsset = ASSETS.includes(url.href.split("?")[0]);
-  if (request.mode !== "navigate" && !isAsset) return;
+self.addEventListener("activate", e => {
+  e.waitUntil((async () => {
+    // Bizim olmayan HER onbellegi sil — eski site surumleri dahil
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
+    // Acik sekmeleri bir kez tazele ki eski HTML ekranda kalmasin
+    const cs = await self.clients.matchAll({ type: "window" });
+    for (const c of cs) { try { c.navigate(c.url); } catch (err) {} }
+  })());
+});
 
+self.addEventListener("fetch", e => {
+  const req = e.request;
+  let url;
+  try { url = new URL(req.url); } catch (err) { return; }
+  if (req.method !== "GET" || url.origin !== SCOPE.origin || !req.url.startsWith(BASE)) return;
+
+  // 1) Gezinme: ag once, 5 sn icinde gelmezse onbellek
+  if (req.mode === "navigate") {
+    e.respondWith((async () => {
+      try {
+        const fresh = await Promise.race([
+          fetch(req, { cache: "no-store" }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000))
+        ]);
+        if (fresh && fresh.ok) {
+          const c = await caches.open(CACHE);
+          c.put(new URL("index.html", BASE).href, fresh.clone()).catch(() => {});
+        }
+        return fresh;
+      } catch (err) {
+        const c = await caches.open(CACHE);
+        return (await c.match(new URL("index.html", BASE).href)) || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // 2) Varliklar: onbellek once, arka planda tazele
+  const key = url.href.split("?")[0];
+  if (!ASSETS.includes(key)) return;
   e.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    const cached = await cache.match(request, { ignoreSearch: true });
-    if (cached) return cached;
-    try {
-      const response = await fetch(request);
-      if (isAsset && response.ok) await cache.put(url.href, response.clone());
-      return response;
-    } catch {
-      if (request.mode === "navigate") return (await cache.match(new URL("index.html", BASE).href)) || Response.error();
-      return Response.error();
-    }
+    const c = await caches.open(CACHE);
+    const hit = await c.match(key);
+    const net = fetch(req).then(r => { if (r.ok) c.put(key, r.clone()).catch(() => {}); return r; }).catch(() => null);
+    return hit || (await net) || Response.error();
   })());
 });
