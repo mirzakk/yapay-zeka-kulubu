@@ -169,15 +169,22 @@
   function lockApplications() { appKey = null; plainApps = null; }
 
   /* Elde anahtar varken tüm zarfları yeniden çöz (yeni içe aktarma sonrası) */
+  let failedCount = 0;
+
   async function decryptAll() {
     if (!appKey) return 0;
     const out = [];
+    failedCount = 0;
     for (const b of rawApps()) {
-      try { out.push(await YZKSecure.open(appKey, b)); } catch {}
+      try { out.push(await YZKSecure.open(appKey, b)); } catch { failedCount++; }
     }
     plainApps = out;
     return out.length;
   }
+
+  const typeLabel = a => a.application_type === 'audit' ? 'Denetim'
+                     : a.application_type === 'board' ? 'Yönetim'
+                     : a.application_type === 'member' ? 'Üyelik' : '—';
 
   /* Değişikliği yeniden şifrele (onay/red) */
   async function persistApplications(list) {
@@ -243,27 +250,30 @@
       dbGetAll(DB, 'news'),
       dbGetAll(DB, 'members')
     ]);
-    const apps = rawApps();
+    const sealed = rawApps();
+    const apps = getApplications();
 
     setText('statProjects', projects.length);
     setText('statNews', news.length);
     setText('statMembers', members.length);
-    setText('statApps', apps.length);
-    updateBadges(projects.length, news.length, members.length, apps.length);
+    setText('statApps', sealed.length);
+    updateBadges(projects.length, news.length, members.length, sealed.length);
 
     const tbody = $('#dashAppsTable');
     if (tbody) {
-      if (apps.length === 0) {
+      if (sealed.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:28px;">Henüz başvuru yok.</td></tr>';
       } else if (!isUnlocked()) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:28px;">🔒 ${apps.length} şifreli başvuru — Başvurular sekmesinde kilidi aç.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:28px;">🔒 ${sealed.length} şifreli başvuru — Başvurular sekmesinden parolayla aç.</td></tr>`;
+      } else if (apps.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:28px;">${sealed.length} kayıt bu anahtarla açılamıyor (eski anahtarla şifrelenmiş).</td></tr>`;
       } else {
         tbody.innerHTML = apps.slice(-5).reverse().map(a => `
           <tr>
             <td>${esc(a.name || '—')}</td>
             <td style="color:var(--muted);font-size:12px;">${esc(a.email || '—')}</td>
             <td style="color:var(--muted);font-size:12px;">${esc(a.department || '—')}</td>
-            <td><span class="badge badge-active">${esc(a.application_type === 'audit' ? 'Denetim' : a.application_type === 'board' ? 'Yönetim' : 'Üyelik')}</span></td>
+            <td><span class="badge badge-active">${esc(typeLabel(a))}</span></td>
             <td><span class="badge ${statusBadgeClass(a.status || 'pending')}">${esc(appStatusLabel(a.status || 'pending'))}</span></td>
           </tr>
         `).join('');
@@ -451,7 +461,7 @@
     // Sayaçlar: kilit kapalıyken yalnızca zarfın açık alanından (t) sayılır
     const setB = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     const today = new Date().toDateString();
-    const rawList = unlocked ? all : rawApps();
+    const rawList = unlocked && all.length ? all : rawApps();
     const typeOf = x => unlocked ? x.application_type : (x.t === 'b' ? 'board' : x.t === 'a' ? 'audit' : 'member');
 
     setB('appStatTotal', sealedCount);
@@ -459,6 +469,11 @@
     setB('appStatAudit', rawList.filter(x => typeOf(x) === 'audit').length);
     setB('appStatPending', unlocked ? all.filter(x => (x.status || 'pending') === 'pending').length : '—');
     setB('appStatToday', unlocked ? all.filter(x => x.submittedAt && new Date(x.submittedAt).toDateString() === today).length : '—');
+
+    if (unlocked && failedCount > 0) {
+      const bar = $('#unlockMsg');
+      if (bar) { bar.style.color = 'var(--amber)'; bar.textContent = failedCount + ' kayıt bu anahtarla açılamıyor (farklı anahtarla şifrelenmiş).'; }
+    }
 
     refreshLockUI();
 
@@ -492,12 +507,17 @@
     }
 
     if (apps.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="admin-empty"><div class="admin-empty-icon">📋</div><p>${all.length === 0 ? 'Henüz başvuru alınmadı.' : 'Bu filtreyle eşleşen başvuru yok.'}</p></div></td></tr>`;
+      const emptyMsg = all.length === 0
+        ? (sealedCount > 0
+            ? `${sealedCount} kayıt bu anahtarla açılamıyor (eski anahtarla şifrelenmiş).`
+            : 'Henüz başvuru alınmadı.')
+        : 'Bu filtreyle eşleşen başvuru yok.';
+      tbody.innerHTML = `<tr><td colspan="7"><div class="admin-empty"><div class="admin-empty-icon">📋</div><p>${esc(emptyMsg)}</p></div></td></tr>`;
       return;
     }
 
     tbody.innerHTML = apps.map(a => {
-      const t   = a.application_type === 'board' ? 'Yönetim' : a.application_type === 'audit' ? 'Denetim' : 'Üyelik';
+      const t   = typeLabel(a);
       const dt  = a.submittedAt ? new Date(a.submittedAt).toLocaleString('tr-TR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
       const id  = esc(a.id);
       return `
