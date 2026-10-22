@@ -60,6 +60,51 @@ panel her açılışta sessizce de çeker.
 
 ---
 
+## Firebase Realtime Database — şu an kullanılan
+
+`sync.js` içinde `provider: "rtdb"` ve veritabanı URL'i hazır. Başvurular
+doğrudan oraya düşüyor, panel açılışta çekiyor.
+
+### Kuralları sıkılaştır (ÖNEMLİ)
+
+Realtime Database → **Rules** → şunu yapıştır:
+
+```json
+{
+  "rules": {
+    "applications": {
+      "$id": {
+        ".read": true,
+        ".write": "!data.exists()"
+      }
+    }
+  }
+}
+```
+
+Ne yapar:
+- `.read: true` → panel zarfları okuyabilir. İçerik şifreli olduğu için bu güvenli.
+- `.write: "!data.exists()"` → herkes **yeni** kayıt ekleyebilir, ama var olanı
+  **silemez ve değiştiremez**. `write: true` bırakılırsa biri tüm başvuruları
+  tek istekle silebilir (veri kaybı).
+
+### Test
+
+```bash
+DB="https://yapay-zeka-klubu-default-rtdb.europe-west1.firebasedatabase.app"
+curl -s -X POST "$DB/applications.json" -H "Content-Type: application/json" \
+  -d '{"v":1,"t":"b","iv":"aaaaaaaaaaaa","ck":"'$(head -c 200 /dev/zero | tr '\0' 'x')'","ct":"'$(head -c 120 /dev/zero | tr '\0' 'y')'"}'
+curl -s "$DB/applications.json"
+```
+
+### Sınırlar
+- RTDB'de `unique` kısıtı yok → tekilleştirme panelde `ct` ile yapılır.
+- Okuma açık olduğu için zarflar herkese görünür; **içerik çözülemez**, anahtar sitede yok.
+- Spam mümkün (yeni kayıt ekleme serbest). Gerekirse kurala tarih/boyut kontrolü
+  veya App Check eklenir.
+
+---
+
 ## Firebase (Firestore) — Supabase yerine
 
 Supabase hesabı istemiyorsan aynı işi Firebase ile yapabilirsin. Ücretsiz Spark

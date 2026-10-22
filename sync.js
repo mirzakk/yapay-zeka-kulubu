@@ -18,10 +18,13 @@
   "use strict";
 
   var CFG = {
-    provider: "",                       // "supabase" | "firebase"
+    provider: "rtdb",                   // "rtdb" | "supabase" | "firebase"
     supabase: { url: "", key: "", table: "applications" },
     firebase: { projectId: "", apiKey: "", collection: "applications" },
-    rtdb: { url: "", path: "applications" }
+    rtdb: {
+      url: "https://yapay-zeka-klubu-default-rtdb.europe-west1.firebasedatabase.app",
+      path: "applications"
+    }
   };
 
   // Test/geliştirme için tarayıcıdan geçici override
