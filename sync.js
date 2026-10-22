@@ -158,32 +158,76 @@
     }
   }
 
-  /* ── /config: açık anahtar + kasa ─────────────────────────────────────
-     { pub: "<b64 SPKI>", vault: {...} } — herkese açık okunur, parolasız açılmaz. */
-  function configUrl() {
-    if (CFG.provider !== "rtdb") return "";
-    return CFG.rtdb.url.replace(/\/+$/, "") + "/config.json";
+  /* ── Yayın (pub) + kasa (vault) ───────────────────────────────────────
+     Kurallar /config düğümünü ilk yazımdan sonra kilitliyorsa, kayıtlar
+     /applications altına {k:"pub"} / {k:"vault"} olarak yazılır (aynı yol,
+     aynı izin). Okurken en son kayıt geçerlidir. */
+  function appsUrl() {
+    return CFG.rtdb.url.replace(/\/+$/, "") + "/applications.json";
   }
 
   async function configGet() {
-    var u = configUrl();
-    if (!u) return null;
+    if (CFG.provider !== "rtdb") return null;
+    var cfg = {};
+    // 1) /config (varsa)
     try {
-      var r = await fetch(u, { cache: "no-store" });
-      if (!r.ok) return null;
-      var v = await r.json();
-      return v && typeof v === "object" ? v : null;
-    } catch (e) { return null; }
+      var r = await fetch(CFG.rtdb.url.replace(/\/+$/, "") + "/config.json", { cache: "no-store" });
+      if (r.ok) {
+        var v = await r.json();
+        if (v && typeof v === "object") {
+          if (v.pub) cfg.pub = v.pub;
+          if (v.vault) cfg.vault = v.vault;
+        }
+      }
+    } catch (e) {}
+    // 2) /applications içindeki yayın kayıtları (en son kazanır)
+    try {
+      var r2 = await fetch(appsUrl(), { cache: "no-store" });
+      if (r2.ok) {
+        var obj = await r2.json();
+        if (obj && typeof obj === "object") {
+          Object.keys(obj).forEach(function (k) {
+            var it = obj[k];
+            if (!it || typeof it.d !== "string") return;
+            try {
+              var parsed = JSON.parse(it.d);
+              if (it.k === "pub" && typeof parsed === "string") cfg.pub = parsed;
+              if (it.k === "vault" && parsed && parsed.wrapped) cfg.vault = parsed;
+            } catch (e2) {}
+          });
+        }
+      }
+    } catch (e3) {}
+    return (cfg.pub || cfg.vault) ? cfg : null;
   }
 
-  /* Kısmi yazma: yalnızca verilen alanlar güncellenir */
+  /* Kısmi yayın: önce /config PATCH, olmazsa /applications'a kayıt olarak */
   async function configPatch(obj) {
-    var u = configUrl();
-    if (!u) return { ok: false, reason: "provider" };
+    if (CFG.provider !== "rtdb") return { ok: false, reason: "provider" };
+    var out = { ok: false, reason: "" };
     try {
-      var r = await fetch(u, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) });
-      return { ok: r.ok, reason: r.ok ? "" : "http " + r.status };
-    } catch (e) { return { ok: false, reason: "network" }; }
+      var r = await fetch(CFG.rtdb.url.replace(/\/+$/, "") + "/config.json", {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj)
+      });
+      if (r.ok) return { ok: true, where: "config" };
+      out.reason = "http " + r.status;
+    } catch (e) { out.reason = "network"; }
+
+    // yedek: her alan ayrı kayıt
+    var wrote = 0, keys = Object.keys(obj);
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      try {
+        var r2 = await fetch(appsUrl(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ v: 0, k: key, d: JSON.stringify(obj[key]), at: Date.now() })
+        });
+        if (r2.ok) wrote++;
+      } catch (e2) {}
+    }
+    if (wrote === keys.length) return { ok: true, where: "applications" };
+    return { ok: false, reason: out.reason || "write" };
   }
 
   /* ── Kasa (özel anahtar, yönetici parolasıyla sarılı) ────────────────
@@ -194,56 +238,12 @@
   }
 
   async function vaultGet() {
-    // 1) /config/vault.json
-    var u = vaultUrl();
-    if (u) {
-      try {
-        var r = await fetch(u, { cache: "no-store" });
-        if (r.ok) {
-          var v = await r.json();
-          if (v && v.v === 1 && v.wrapped) return v;
-        }
-      } catch (e) {}
-    }
-    // 2) Yedek yol: /applications içinde {k:"vault"} kaydı (yalnızca applications yazılabilirse)
-    try {
-      var rows = await fetch(CFG.rtdb.url.replace(/\/+$/, "") + "/applications.json", { cache: "no-store" });
-      if (!rows.ok) return null;
-      var obj = await rows.json();
-      if (!obj || typeof obj !== "object") return null;
-      for (var k in obj) {
-        var it = obj[k];
-        if (it && it.k === "vault" && typeof it.d === "string") {
-          try { var parsed = JSON.parse(it.d); if (parsed && parsed.v === 1 && parsed.wrapped) return parsed; } catch (e2) {}
-        }
-      }
-    } catch (e3) {}
-    return null;
+    var cfg = await configGet();
+    return (cfg && cfg.vault) ? cfg.vault : null;
   }
 
-  async function vaultPut(vault, existing) {
-    var u = vaultUrl();
-    if (!u) return { ok: false, reason: "provider" };
-    // 1) /config/vault.json
-    try {
-      var r = await fetch(u, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(vault)
-      });
-      if (r.ok) return { ok: true, where: "config" };
-      if (r.status !== 401 && r.status !== 403) return { ok: false, reason: "http " + r.status };
-    } catch (e) {}
-    // 2) Yedek: /applications içine {k:"vault"} olarak yaz (applications yazılabilirse)
-    try {
-      var r2 = await fetch(CFG.rtdb.url.replace(/\/+$/, "") + "/applications.json", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ v: 0, k: "vault", d: JSON.stringify(vault), at: Date.now() })
-      });
-      if (r2.ok) return { ok: true, where: "applications" };
-      return { ok: false, reason: "http " + r2.status };
-    } catch (e2) { return { ok: false, reason: "network" }; }
+  async function vaultPut(vault) {
+    return configPatch({ vault: vault });
   }
 
   /* Yerel depoyla birleştir (ct ile tekilleştir) */
