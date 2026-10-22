@@ -1494,6 +1494,7 @@
         status.textContent = fmt("Gönderiliyor…", "Sending…");
         const r = await YZKSync.push(sealed);
         sent = r.ok;
+        if (!sent) sealed.local = 1;   // çevrimdışı kuyruk: sonra tekrar denenecek
       }
 
       // ponytail: sunucusuz site — kayıt bu cihazda şifreli durur. Çok cihazlı

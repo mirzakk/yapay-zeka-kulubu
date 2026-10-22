@@ -612,17 +612,19 @@
   // ── Ortak uç nokta (varsa) ────────────────────────────────
   async function pullFromServer(silent) {
     if (!window.YZKSync || !YZKSync.enabled()) {
-      if (!silent) showToast('Senkron kapalı: sync.js içine url + key gir.', 'error');
+      if (!silent) showToast('Senkron kapalı.', 'error');
       return 0;
     }
+    try { await YZKSync.flushQueue(); } catch {}
     const res = await YZKSync.merge();
     if (!res.ok) { if (!silent) showToast('Sunucuya ulaşılamadı: ' + res.reason, 'error'); return 0; }
-    if (res.added) {
-      if (isUnlocked()) await decryptAll();
-      renderApplications(); renderDashboard();
-      if (!silent) showToast(res.added + ' yeni başvuru alındı.', 'success');
-    } else if (!silent) {
-      showToast('Yeni başvuru yok (toplam ' + res.total + ').', 'success');
+    if (isUnlocked()) await decryptAll();
+    renderApplications(); renderDashboard();
+    if (!silent) {
+      const bits = [];
+      if (res.added) bits.push(res.added + ' yeni');
+      if (res.pruned) bits.push(res.pruned + ' bayat kayıt temizlendi');
+      showToast(bits.length ? bits.join(', ') + '.' : 'Güncel: ' + res.total + ' başvuru.', 'success');
     }
     return res.added;
   }
@@ -672,6 +674,20 @@
     if (isUnlocked()) { await decryptAll(); }
     renderApplications();
     renderDashboard();
+  });
+
+  // ── Şifreli yedek indir (zarflar; anahtarsız açılamaz) ────
+  $('#backupBtn')?.addEventListener('click', async () => {
+    const boxes = rawApps();
+    if (!boxes.length) { showToast('Yedeklenecek kayıt yok.', 'error'); return; }
+    const payload = { kind: 'yzk-applications-backup', v: 1, at: new Date().toISOString(), boxes: boxes };
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'yzk-yedek-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showToast(boxes.length + ' zarf yedeklendi (şifreli).', 'success');
   });
 
   // ── Filters & search wiring ──────────────────────────────

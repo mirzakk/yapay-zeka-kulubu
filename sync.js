@@ -97,33 +97,28 @@
     return { v: Number(val(f.v)) || 1, t: val(f.t) || "m", iv: val(f.iv), ck: val(f.ck), ct: val(f.ct) };
   }
 
+  /* İçerik adresi: ct'nin SHA-256'sı → aynı zarf iki kez yazılamaz */
+  async function boxKey(ct) {
+    var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ct));
+    return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+  }
+
   /* Zarfı gönder — yalnızca şifreli alanlar */
   async function push(box) {
     if (!enabled()) return { ok: false, reason: "off" };
+    if (CFG.provider !== "rtdb") return { ok: false, reason: "provider" };
     try {
-      var res;
-      if (CFG.provider === "supabase") {
-        res = await fetch(sbUrl(), {
-          method: "POST",
-          headers: Object.assign({ "Prefer": "return=minimal,resolution=ignore-duplicates" }, sbHeaders()),
-          body: JSON.stringify({ v: box.v, t: box.t, iv: box.iv, ck: box.ck, ct: box.ct })
-        });
-        if (res.status === 409) return { ok: true, duplicate: true };
-      } else if (CFG.provider === "rtdb") {
-        res = await fetch(rtdbUrl(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ v: box.v, t: box.t, iv: box.iv, ck: box.ck, ct: box.ct })
-        });
-      } else {
-        res = await fetch(fbUrl(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(fbDoc(box))
-        });
-      }
-      if (!res.ok) return { ok: false, reason: "http " + res.status };
-      return { ok: true };
+      var key = await boxKey(box.ct);
+      var url = appsUrl().replace(/\.json$/, "/" + key + ".json");
+      var res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ v: box.v, t: box.t, iv: box.iv, ck: box.ck, ct: box.ct, at: Date.now() })
+      });
+      // 401/403: kural "!data.exists()" → kayıt zaten var (idempotent)
+      if (res.ok) return { ok: true };
+      if (res.status === 401 || res.status === 403) return { ok: true, duplicate: true };
+      return { ok: false, reason: "http " + res.status };
     } catch (e) {
       return { ok: false, reason: "network" };
     }
@@ -246,25 +241,53 @@
     return configPatch({ vault: vault });
   }
 
-  /* Yerel depoyla birleştir (ct ile tekilleştir) */
+  /* Sunucu tek doğru kaynaktır:
+     - sunucuda olan kayıtlar aynen alınır
+     - yerelde olup sunucuda olmayan kayıt SİLİNİR (bayat kopya)
+     - istisna: gönderilememiş (local:1) kuyruk korunur, sonra tekrar denenir */
   async function merge() {
     var p = await pull();
     if (!p.ok) return p;
+
     var local = [];
     try { local = JSON.parse(localStorage.getItem("yzk-applications") || "[]"); } catch (e) {}
-    local = local.filter(function (b) { return b && b.v === 1 && b.ct; });
-    var seen = {};
-    local.forEach(function (b) { seen[b.ct] = 1; });
-    var added = 0;
-    p.rows.forEach(function (r) {
-      if (!r || r.k === "vault" || r.v === 0 || !r.ct || !r.ck || seen[r.ct]) return;
-      seen[r.ct] = 1;
-      local.push({ v: 1, t: r.t || "m", iv: r.iv, ck: r.ck, ct: r.ct });
-      added++;
+    local = (Array.isArray(local) ? local : []).filter(function (b) { return b && b.v === 1 && b.ct && b.ck && b.iv; });
+
+    var remote = {}, rows = p.rows || [];
+    rows.forEach(function (r) {
+      if (!r || r.k === "vault" || r.k === "pub" || r.v === 0) return;
+      if (!r.ct || !r.ck || !r.iv) return;
+      remote[r.ct] = { v: 1, t: r.t || "m", iv: r.iv, ck: r.ck, ct: r.ct };
     });
-    if (added) localStorage.setItem("yzk-applications", JSON.stringify(local));
-    return { ok: true, added: added, total: local.length };
+
+    var keep = [], pruned = 0;
+    local.forEach(function (b) {
+      if (remote[b.ct]) { delete remote[b.ct]; return; }   // sunucudaki kopya kullanılacak
+      if (b.local) { keep.push(b); return; }               // çevrimdışı kuyruk
+      pruned++;                                            // bayat yerel kopya
+    });
+    Object.keys(remote).forEach(function (k) { keep.push(remote[k]); });
+
+    localStorage.setItem("yzk-applications", JSON.stringify(keep));
+    return { ok: true, added: Object.keys(remote).length, total: keep.length, pruned: pruned };
   }
 
-  global.YZKSync = { enabled: enabled, push: push, pull: pull, merge: merge, vaultGet: vaultGet, vaultPut: vaultPut, configGet: configGet, configPatch: configPatch, config: CFG };
+  /* Gönderilememiş zarfları tekrar dene (açılışta bir kez) */
+  async function flushQueue() {
+    if (!enabled()) return 0;
+    var local = [];
+    try { local = JSON.parse(localStorage.getItem("yzk-applications") || "[]"); } catch (e) { return 0; }
+    if (!Array.isArray(local)) return 0;
+    var sent = 0;
+    for (var i = 0; i < local.length; i++) {
+      var b = local[i];
+      if (!b || !b.local || !b.ct) continue;
+      var r = await push(b);
+      if (r.ok) { delete b.local; sent++; }
+    }
+    if (sent) localStorage.setItem("yzk-applications", JSON.stringify(local));
+    return sent;
+  }
+
+  global.YZKSync = { enabled: enabled, push: push, pull: pull, merge: merge, flushQueue: flushQueue, appsUrl: appsUrl, vaultGet: vaultGet, vaultPut: vaultPut, configGet: configGet, configPatch: configPatch, config: CFG };
 })(window);
