@@ -56,18 +56,11 @@
   /* Aktif açık anahtar: sunucudaki /config.pub → yoksa gömülü anahtar */
   var _pubCache;
   async function activePub() {
-    if (_pubCache) return _pubCache;
-    try {
-      var cached = localStorage.getItem("yzk-pub");
-      if (cached && cached.length > 100) { _pubCache = cached; return cached; }
-    } catch (e) {}
+    // Önbellek YOK: anahtar değişirse eski anahtarla şifreleyip veri kaybetmemek için
+    // her gönderimde güncel anahtar okunur (tek istek, ~100 ms).
     try {
       var cfg = window.YZKSync && YZKSync.configGet ? await YZKSync.configGet() : null;
-      if (cfg && cfg.pub && cfg.pub.length > 100) {
-        _pubCache = cfg.pub;
-        try { localStorage.setItem("yzk-pub", cfg.pub); } catch (e2) {}
-        return cfg.pub;
-      }
+      if (cfg && cfg.pub && cfg.pub.length > 100) { _pubCache = cfg.pub; return cfg.pub; }
     } catch (e3) {}
     _pubCache = PUB;
     return PUB;
