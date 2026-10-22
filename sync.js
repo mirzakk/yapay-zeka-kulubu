@@ -262,7 +262,7 @@
 
     var keep = [], pruned = 0;
     local.forEach(function (b) {
-      if (remote[b.ct]) { delete remote[b.ct]; return; }   // sunucudaki kopya kullanılacak
+      if (remote[b.ct]) { keep.push(remote[b.ct]); delete remote[b.ct]; return; }  // sunucu kopyası
       if (b.local) { keep.push(b); return; }               // çevrimdışı kuyruk
       pruned++;                                            // bayat yerel kopya
     });
