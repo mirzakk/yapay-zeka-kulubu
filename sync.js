@@ -1,64 +1,107 @@
-/* YZK — başvuru senkronu (isteğe bağlı, tek uç nokta)
+/* YZK — başvuru senkronu (isteğe bağlı, iki sağlayıcı)
  *
  * NEDEN GEREKLİ: statik sitede başvuru, başvuranın KENDİ tarayıcısına yazılır.
  * Kulübün cihazındaki panel başka tarayıcının deposunu göremez. Bu yüzden
  * başvuruların panele düşmesi için tek bir ortak uç nokta şart.
  *
  * GÜVENLİK: sunucuya YALNIZCA zarf gider ({v,t,iv,ck,ct}). Açık metin
- * (ad, TC, e-posta, not) hiçbir zaman yüklenmez. Sunucu açık olsa bile
- * kayıtları yalnızca kulübün özel anahtarı çözebilir.
+ * (ad, TC, e-posta, not) hiçbir zaman yüklenmez. Veritabanı herkese açık
+ * okunabilir olsa bile kayıtları yalnızca kulübün özel anahtarı çözer.
  *
- * KURULUM: aşağıdaki iki alanı doldur (sync-kurulum.md, ~3 dakika).
- *   url : https://<proje>.supabase.co
- *   key : anon public key
- * Boş bırakılırsa senkron kapalıdır; site eskisi gibi çalışır (dosya indirme).
+ * KURULUM: provider + ilgili kimlik bilgilerini doldur (sync-kurulum.md).
+ *   provider: "supabase" → url + key
+ *   provider: "firebase" → projectId + apiKey
+ * Boşsa senkron kapalıdır; site eskisi gibi çalışır (şifreli dosya indirme).
  */
 (function (global) {
   "use strict";
 
   var CFG = {
-    url: "",   // ör. "https://abcdxyz.supabase.co"
-    key: "",   // ör. "eyJhbGciOiJIUzI1NiIs..."
-    table: "applications"
+    provider: "",                       // "supabase" | "firebase"
+    supabase: { url: "", key: "", table: "applications" },
+    firebase: { projectId: "", apiKey: "", collection: "applications" }
   };
 
   // Test/geliştirme için tarayıcıdan geçici override
   try {
-    var u = localStorage.getItem("yzk-sync-url");
-    var k = localStorage.getItem("yzk-sync-key");
-    if (u) CFG.url = u;
-    if (k) CFG.key = k;
+    var g = function (k) { return localStorage.getItem("yzk-sync-" + k); };
+    if (g("provider")) CFG.provider = g("provider");
+    if (g("url")) CFG.supabase.url = g("url");
+    if (g("key")) CFG.supabase.key = g("key");
+    if (g("pid")) CFG.firebase.projectId = g("pid");
+    if (g("apikey")) CFG.firebase.apiKey = g("apikey");
   } catch (e) {}
 
   function enabled() {
-    return /^https?:\/\//.test(CFG.url) && CFG.key.length > 20;
+    if (CFG.provider === "supabase") {
+      return /^https?:\/\//.test(CFG.supabase.url) && CFG.supabase.key.length > 20;
+    }
+    if (CFG.provider === "firebase") {
+      return CFG.firebase.projectId.length > 2 && CFG.firebase.apiKey.length > 20;
+    }
+    return false;
   }
 
-  function endpoint() {
-    return CFG.url.replace(/\/+$/, "") + "/rest/v1/" + CFG.table;
+  /* ---------- Supabase (PostgREST) ---------- */
+  function sbUrl() {
+    return CFG.supabase.url.replace(/\/+$/, "") + "/rest/v1/" + CFG.supabase.table;
   }
-
-  function headers(extra) {
-    var h = {
-      "apikey": CFG.key,
-      "Authorization": "Bearer " + CFG.key,
+  function sbHeaders() {
+    return {
+      "apikey": CFG.supabase.key,
+      "Authorization": "Bearer " + CFG.supabase.key,
       "Content-Type": "application/json"
     };
-    for (var k in extra || {}) h[k] = extra[k];
-    return h;
   }
 
-  /* Zarfı gönder. Yalnızca şifreli alanlar. */
+  /* ---------- Firebase (Firestore REST) ---------- */
+  function fbUrl() {
+    var base = "https://firestore.googleapis.com/v1/projects/" +
+      encodeURIComponent(CFG.firebase.projectId) +
+      "/databases/(default)/documents/" + CFG.firebase.collection;
+    return base + "?key=" + encodeURIComponent(CFG.firebase.apiKey);
+  }
+  function fbDoc(box) {
+    return {
+      fields: {
+        v: { integerValue: String(box.v) },
+        t: { stringValue: String(box.t || "m") },
+        iv: { stringValue: box.iv },
+        ck: { stringValue: box.ck },
+        ct: { stringValue: box.ct }
+      }
+    };
+  }
+  function fbFlat(doc) {
+    var f = (doc && doc.fields) || {};
+    var val = function (x) {
+      if (!x) return "";
+      return x.stringValue != null ? x.stringValue
+           : x.integerValue != null ? Number(x.integerValue)
+           : x.timestampValue != null ? x.timestampValue : "";
+    };
+    return { v: Number(val(f.v)) || 1, t: val(f.t) || "m", iv: val(f.iv), ck: val(f.ck), ct: val(f.ct) };
+  }
+
+  /* Zarfı gönder — yalnızca şifreli alanlar */
   async function push(box) {
     if (!enabled()) return { ok: false, reason: "off" };
-    var row = { v: box.v, t: box.t, iv: box.iv, ck: box.ck, ct: box.ct };
     try {
-      var res = await fetch(endpoint(), {
-        method: "POST",
-        headers: headers({ "Prefer": "return=minimal,resolution=ignore-duplicates" }),
-        body: JSON.stringify(row)
-      });
-      if (res.status === 409) return { ok: true, duplicate: true };
+      var res;
+      if (CFG.provider === "supabase") {
+        res = await fetch(sbUrl(), {
+          method: "POST",
+          headers: Object.assign({ "Prefer": "return=minimal,resolution=ignore-duplicates" }, sbHeaders()),
+          body: JSON.stringify({ v: box.v, t: box.t, iv: box.iv, ck: box.ck, ct: box.ct })
+        });
+        if (res.status === 409) return { ok: true, duplicate: true };
+      } else {
+        res = await fetch(fbUrl(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fbDoc(box))
+        });
+      }
       if (!res.ok) return { ok: false, reason: "http " + res.status };
       return { ok: true };
     } catch (e) {
@@ -66,21 +109,29 @@
     }
   }
 
-  /* Zarfları çek (son 500). Sunucu yalnızca şifreli metin döndürür. */
+  /* Zarfları çek (en çok 300) */
   async function pull(limit) {
     if (!enabled()) return { ok: false, reason: "off", rows: [] };
-    var q = "?select=v,t,iv,ck,ct&order=created_at.desc&limit=" + (limit || 500);
+    var n = limit || 300;
     try {
-      var res = await fetch(endpoint() + q, { headers: headers() });
-      if (!res.ok) return { ok: false, reason: "http " + res.status, rows: [] };
-      var rows = await res.json();
-      return { ok: true, rows: Array.isArray(rows) ? rows : [] };
+      if (CFG.provider === "supabase") {
+        var q = "?select=v,t,iv,ck,ct&order=created_at.desc&limit=" + n;
+        var r1 = await fetch(sbUrl() + q, { headers: sbHeaders() });
+        if (!r1.ok) return { ok: false, reason: "http " + r1.status, rows: [] };
+        var rows1 = await r1.json();
+        return { ok: true, rows: Array.isArray(rows1) ? rows1 : [] };
+      }
+      var r2 = await fetch(fbUrl() + "&pageSize=" + n);
+      if (!r2.ok) return { ok: false, reason: "http " + r2.status, rows: [] };
+      var body = await r2.json();
+      var docs = (body && body.documents) || [];
+      return { ok: true, rows: docs.map(fbFlat) };
     } catch (e) {
       return { ok: false, reason: "network", rows: [] };
     }
   }
 
-  /* Zarfları yerel depoyla birleştir (ct ile tekilleştir) */
+  /* Yerel depoyla birleştir (ct ile tekilleştir) */
   async function merge() {
     var p = await pull();
     if (!p.ok) return p;
