@@ -214,7 +214,7 @@
     } catch (e) { out.reason = "network"; }
 
     // yedek: her alan ayrı kayıt
-    var wrote = 0, keys = Object.keys(obj);
+    var wrote = 0, keys = Object.keys(obj).filter(function (k) { return k === "pub" || k === "vault"; });
     for (var i = 0; i < keys.length; i++) {
       var key = keys[i];
       try {

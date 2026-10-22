@@ -1040,7 +1040,7 @@
       try {
         const kp = await YZKSecure.generateKeypair();
         const vault = await YZKSecure.makeVault(kp.pkcs8, p1);
-        const put = await YZKSync.configPatch({ pub: kp.pubB64, vault: vault, at: Date.now() });
+        const put = await YZKSync.configPatch({ pub: kp.pubB64, vault: vault });
         if (!put.ok) {
           btn.disabled = false; btn.textContent = 'Kurulumu Tamamla →';
           return bad('Sunucuya yazılamadı (' + put.reason + '). Firebase → Rules: .write izni gerekli.');
