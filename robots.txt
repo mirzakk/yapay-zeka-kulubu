@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+# Yönetim paneli arama motorlarına kapalı (güvenlik sınırı değil, gürültü azaltma)
+Disallow: /admin.html
