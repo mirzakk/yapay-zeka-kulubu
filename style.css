@@ -3344,3 +3344,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .ambient-glow { display: none; }
   .live-dot, .status-live-dot, .brand-pulse { animation: none !important; }
 }
+
+/* Canlı başvuru sayacı (status-banner içi) */
+.status-count{font-family:var(--mono,"JetBrains Mono",monospace);font-size:11px;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.status-count[hidden]{display:none}

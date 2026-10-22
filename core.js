@@ -398,6 +398,18 @@
       </a>`;
   }
 
+  /* Ana sayfadaki canlı başvuru sayısı — sunucudan, bayat yerel kayıtlar atılarak */
+  async function refreshLiveCount() {
+    const el = document.getElementById("liveApps");
+    if (!el || !window.YZKSync || !YZKSync.enabled()) return;
+    try {
+      const r = await YZKSync.merge();
+      if (!r || !r.ok) return;
+      el.textContent = fmt(r.total + " başvuru", r.total + " applications");
+      el.hidden = r.total === 0;
+    } catch {}
+  }
+
   function renderHome() {
     const L = T[lang];
     const disciplines = DATA.disciplinesAll[lang];
@@ -414,6 +426,7 @@
         <span class="status-sep" aria-hidden="true">·</span>
         <span>${esc(fmt("Yönetim ve denetim kurulu başvuruları açık — son tarih 23 Ekim 23:00", "Board & audit applications open — deadline Oct 23, 23:00"))}</span>
         ${countdownHtml(DATA.announce[lang].deadline, "inline")}
+        <span id="liveApps" class="status-count" hidden></span>
         <a href="#/basvuru" class="status-link">${esc(fmt("Başvur", "Apply"))} ↗</a>
       </div>
 
@@ -572,6 +585,8 @@
 
     initHeroCanvas();
     attachSpotlights();
+    refreshLiveCount();
+
   }
 
   /* ---------- KART BİLEŞENLERİ ---------- */
