@@ -227,7 +227,7 @@
             <td>${esc(a.name || '—')}</td>
             <td style="color:var(--muted);font-size:12px;">${esc(a.email || '—')}</td>
             <td style="color:var(--muted);font-size:12px;">${esc(a.department || '—')}</td>
-            <td><span class="badge badge-pending">${esc(a.application_type || 'membership')}</span></td>
+            <td><span class="badge badge-active">${esc(a.application_type === 'audit' ? 'Denetim' : a.application_type === 'board' ? 'Yönetim' : 'Üyelik')}</span></td>
             <td><span class="badge ${statusBadgeClass(a.status || 'pending')}">${esc(appStatusLabel(a.status || 'pending'))}</span></td>
           </tr>
         `).join('');
@@ -401,40 +401,154 @@
   };
 
   // Applications
+  let appsFilter = 'all';
+  let appsQuery = '';
+
   function renderApplications() {
-    const apps  = getApplications();
+    const all   = getApplications();
     const tbody = $('#appsTable');
     if (!tbody) return;
+
+    // counters
+    const today = new Date().toDateString();
+    const setB = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setB('appStatTotal',   all.length);
+    setB('appStatBoard',   all.filter(a => a.application_type === 'board').length);
+    setB('appStatAudit',   all.filter(a => a.application_type === 'audit').length);
+    setB('appStatPending', all.filter(a => (a.status || 'pending') === 'pending').length);
+    setB('appStatToday',   all.filter(a => a.submittedAt && new Date(a.submittedAt).toDateString() === today).length);
+
+    let apps = all;
+
+    // filter
+    if (appsFilter === 'board')       apps = apps.filter(a => a.application_type === 'board');
+    else if (appsFilter === 'audit')  apps = apps.filter(a => a.application_type === 'audit');
+    else if (appsFilter !== 'all')    apps = apps.filter(a => (a.status || 'pending') === appsFilter);
+
+    // search
+    if (appsQuery) {
+      const q = appsQuery.toLowerCase();
+      apps = apps.filter(a => [a.name, a.email, a.tc, a.student_no, a.department, a.university, a.motivation, a.note]
+        .some(v => String(v || '').toLowerCase().includes(q)));
+    }
+
     if (apps.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="admin-empty"><div class="admin-empty-icon">📋</div><p>Henüz başvuru alınmadı.</p></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7"><div class="admin-empty"><div class="admin-empty-icon">📋</div><p>${all.length === 0 ? 'Henüz başvuru alınmadı.' : 'Bu filtreyle eşleşen başvuru yok.'}</p></div></td></tr>`;
       return;
     }
-    tbody.innerHTML = apps.map((a, i) => `
+
+    tbody.innerHTML = apps.map(a => {
+      const idx = all.indexOf(a);
+      const t   = a.application_type === 'board' ? 'Yönetim' : a.application_type === 'audit' ? 'Denetim' : 'Üyelik';
+      const dt  = a.submittedAt ? new Date(a.submittedAt).toLocaleString('tr-TR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+      return `
       <tr>
-        <td>${esc(a.name || '—')}</td>
+        <td><b style="color:var(--fg);">${esc(a.name || '—')}</b>${a.phone ? `<div style="color:var(--dim);font-size:11px;">${esc(a.phone)}</div>` : ''}</td>
         <td style="color:var(--muted);font-size:12px;">${esc(a.email || '—')}</td>
-        <td style="color:var(--muted);font-size:12px;">${esc((a.department || '—').substring(0,40))}</td>
-        <td><span class="badge badge-pending">${esc(a.application_type === 'board' ? 'Yönetim' : 'Üyelik')}</span></td>
-        <td style="color:var(--muted);font-size:12px;">${esc((a.motivation || '—').substring(0,60))}${(a.motivation||'').length>60?'…':''}</td>
+        <td><span class="badge ${a.application_type === 'audit' ? 'badge-open' : 'badge-active'}">${esc(t)}</span></td>
+        <td style="color:var(--muted);font-size:12px;">${esc((a.department || '—').substring(0,32))}</td>
+        <td style="color:var(--dim);font-size:11px;white-space:nowrap;">${esc(dt)}</td>
         <td><span class="badge ${statusBadgeClass(a.status || 'pending')}">${esc(appStatusLabel(a.status || 'pending'))}</span></td>
         <td>
           <div class="table-actions">
-            <button class="btn sm" style="color:var(--lime);border-color:rgba(163,230,53,0.3);" onclick="approveApp(${i})">Onayla</button>
-            <button class="btn sm danger" onclick="rejectApp(${i})">Reddet</button>
+            <button class="btn sm" onclick="viewApp(${idx})">Detay</button>
+            <button class="btn sm" style="color:var(--lime);border-color:rgba(201,224,92,0.3);" onclick="approveApp(${idx})">✓</button>
+            <button class="btn sm danger" onclick="rejectApp(${idx})">✕</button>
           </div>
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
   }
 
-  window.approveApp = function(i) {
+  // ── Detail modal ─────────────────────────────────────────
+  let currentAppIdx = -1;
+  window.viewApp = function (i) {
     const apps = getApplications();
-    if (apps[i]) { apps[i].status = 'approved'; saveApplications(apps); renderApplications(); showToast('Başvuru onaylandı.', 'success'); }
+    const a = apps[i];
+    if (!a) return;
+    currentAppIdx = i;
+    const pos = a.application_type === 'board' ? 'Yönetim Kurulu' : a.application_type === 'audit' ? 'Denetim Kurulu' : 'Üyelik';
+    const row = (label, val, mono) => val
+      ? `<div class="app-detail-row"><span>${esc(label)}</span><div${mono ? ' style="font-family:var(--mono);font-size:12px;"' : ''}>${esc(val)}</div></div>`
+      : '';
+    $('#appDetailTitle').textContent = 'Başvuru · ' + (a.name || '—');
+    $('#appDetailBody').innerHTML = `
+      ${row('POZİSYON', pos)}
+      ${row('DURUM', appStatusLabel(a.status || 'pending'))}
+      ${row('TARİH', a.submittedAt ? new Date(a.submittedAt).toLocaleString('tr-TR') : '—')}
+      ${row('T.C. KİMLİK NO', a.tc, true)}
+      ${row('DOĞUM TARİHİ', a.birthdate)}
+      ${row('ÖĞRENCİ NO', a.student_no, true)}
+      ${row('E-POSTA', a.email)}
+      ${row('TELEFON', a.phone)}
+      ${row('BÖLÜM / SINIF', a.department)}
+      ${row('ÜNİVERSİTE', a.university)}
+      <div class="app-detail-row"><span>MOTİVASYON</span><div style="white-space:pre-wrap;line-height:1.6;">${esc(a.motivation || '—')}</div></div>
+      ${a.note ? `<div class="app-detail-row"><span>EK NOT</span><div style="white-space:pre-wrap;line-height:1.6;">${esc(a.note)}</div></div>` : ''}
+      ${row('KAYIT NO', a.id, true)}
+    `;
+    $('#appDetailModal').hidden = false;
   };
-  window.rejectApp = function(i) {
+  $('#appDetailApprove')?.addEventListener('click', () => { if (currentAppIdx >= 0) { approveApp(currentAppIdx); closeModal('appDetailModal'); } });
+  $('#appDetailReject')?.addEventListener('click',  () => { if (currentAppIdx >= 0) { rejectApp(currentAppIdx);  closeModal('appDetailModal'); } });
+
+  window.approveApp = function (i) {
     const apps = getApplications();
-    if (apps[i]) { apps[i].status = 'rejected'; saveApplications(apps); renderApplications(); showToast('Başvuru reddedildi.', 'error'); }
+    if (apps[i]) { apps[i].status = 'approved'; saveApplications(apps); renderApplications(); renderDashboard(); showToast('Başvuru onaylandı.', 'success'); }
   };
+  window.rejectApp = function (i) {
+    const apps = getApplications();
+    if (apps[i]) { apps[i].status = 'rejected'; saveApplications(apps); renderApplications(); renderDashboard(); showToast('Başvuru reddedildi.', 'error'); }
+  };
+
+  // ── CSV export ───────────────────────────────────────────
+  $('#exportCsvBtn')?.addEventListener('click', () => {
+    const apps = getApplications();
+    if (!apps.length) { showToast('Dışa aktarılacak başvuru yok.', 'error'); return; }
+    const cols = ['id','submittedAt','application_type','status','name','tc','birthdate','student_no','email','phone','department','university','motivation','note'];
+    const head = ['Kayıt No','Tarih','Tür','Durum','Ad Soyad','T.C. Kimlik','Doğum Tarihi','Öğrenci No','E-posta','Telefon','Bölüm/Sınıf','Üniversite','Motivasyon','Ek Not'];
+    const esc_ = v => `"${String(v == null ? '' : v).replace(/"/g,'""')}"`;
+    const rows = [head.map(esc_).join(',')].concat(
+      apps.map(a => cols.map(c => esc_(c === 'application_type'
+        ? (a[c]==='board'?'Yönetim':a[c]==='audit'?'Denetim':'Üyelik')
+        : c === 'status' ? appStatusLabel(a[c]||'pending')
+        : a[c])).join(','))
+    );
+    const blob = new Blob(['\ufeff' + rows.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'yzk-basvurular-' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(link); link.click(); link.remove();
+    URL.revokeObjectURL(url);
+    showToast(apps.length + ' başvuru CSV olarak indirildi.', 'success');
+  });
+
+  // ── Filters & search wiring ──────────────────────────────
+  $$('.apps-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.apps-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      appsFilter = btn.dataset.appfilter;
+      renderApplications();
+    });
+  });
+  $('#searchApps')?.addEventListener('input', e => {
+    appsQuery = e.target.value;
+    renderApplications();
+  });
+
+  // Live updates from the public site (BroadcastChannel)
+  try {
+    const ch = new BroadcastChannel('yzk-apps');
+    ch.onmessage = ev => {
+      if (ev.data && ev.data.type === 'new-application') {
+        renderApplications();
+        renderDashboard();
+        showToast('Yeni başvuru geldi: ' + (ev.data.app.name || ''), 'success');
+      }
+    };
+  } catch {}
 
   // Status helpers
   function statusLabel(s) {
@@ -604,19 +718,38 @@
   setInterval(updateClock, 30000);
 
   // ── Login Flow ────────────────────────────────────────────
+  // ── Login with brute-force throttle ──────────────────────
+  const LOCK_KEY   = 'yzk-admin-lock';
+  const MAX_TRIES  = 5;
+  const LOCK_MS    = 5 * 60 * 1000;
+
+  function getLock() {
+    try { return JSON.parse(localStorage.getItem(LOCK_KEY) || '{"n":0,"until":0}'); }
+    catch { return { n: 0, until: 0 }; }
+  }
+  function setLock(v) { try { localStorage.setItem(LOCK_KEY, JSON.stringify(v)); } catch {} }
+
   async function attemptLogin(pass) {
-    // On first login with correct pass, compute and store hash
+    const lock = getLock();
+    if (lock.until && Date.now() < lock.until) return { ok: false, locked: true, mins: Math.ceil((lock.until - Date.now()) / 60000) };
+
     const stored = localStorage.getItem(PASS_HASH_KEY);
     const inputHash = await sha256(pass);
+    const expected = stored || await sha256('yzk2026');
 
-    if (!stored) {
-      // First ever login — accept 'yzk2026' and store its hash
-      const correctHash = await sha256('yzk2026');
-      if (inputHash !== correctHash) return false;
-      localStorage.setItem(PASS_HASH_KEY, correctHash);
-      return true;
+    if (inputHash !== expected) {
+      const n = (lock.n || 0) + 1;
+      if (n >= MAX_TRIES) {
+        setLock({ n: 0, until: Date.now() + LOCK_MS });
+        return { ok: false, locked: true, mins: Math.ceil(LOCK_MS / 60000) };
+      }
+      setLock({ n, until: 0 });
+      return { ok: false, remaining: MAX_TRIES - n };
     }
-    return inputHash === stored;
+
+    if (!stored) localStorage.setItem(PASS_HASH_KEY, expected);
+    setLock({ n: 0, until: 0 });
+    return { ok: true };
   }
 
   async function init() {
@@ -634,18 +767,42 @@
     $('#loginForm').addEventListener('submit', async e => {
       e.preventDefault();
       const pass = $('#adminPass').value;
-      const ok   = await attemptLogin(pass);
-      if (ok) {
+      const res  = await attemptLogin(pass);
+      if (res.ok) {
         sessionStorage.setItem(SESSION_KEY, 'authenticated');
         await startPanel();
       } else {
         const errEl = $('#loginError');
+        if (errEl) {
+          errEl.textContent = res.locked
+            ? `Çok fazla hatalı deneme. ${res.mins} dakika sonra tekrar deneyin.`
+            : `Parola hatalı. Kalan hak: ${res.remaining}`;
+        }
         if (errEl) errEl.style.display = 'block';
         $('#adminPass').value = '';
         $('#adminPass').focus();
       }
     });
   }
+
+  // ── Theme toggle ─────────────────────────────────────────
+  function syncThemeBtn() {
+    const btn = $('#themeBtn');
+    if (!btn) return;
+    const t = document.documentElement.getAttribute('data-theme') || 'dark';
+    btn.setAttribute('aria-label', t === 'light' ? 'Karanlık temaya geç' : 'Aydınlık temaya geç');
+    btn.setAttribute('aria-pressed', t === 'light' ? 'true' : 'false');
+  }
+  ['#themeBtn', '#themeBtnLogin'].forEach(sel => {
+    $(sel)?.addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = cur === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('yzk-theme', next); } catch {}
+      syncThemeBtn();
+    });
+  });
+  syncThemeBtn();
 
   async function startPanel() {
     $('#loginScreen').style.display = 'none';
@@ -665,13 +822,6 @@
     setupSearch('searchProjects', () => allProjects, renderProjectsTable);
     setupSearch('searchNews',     () => allNews,     renderNewsTable);
     setupSearch('searchMembers',  () => allMembers,  renderMembersTable);
-    setupSearch('searchApps', getApplications, items => {
-      const apps = getApplications();
-      const q = ($('#searchApps')?.value || '').toLowerCase();
-      const filtered = q ? apps.filter(a => JSON.stringify(a).toLowerCase().includes(q)) : apps;
-      // re-render with filtered (reusing renderApplications is simpler)
-      renderApplications();
-    });
 
     // Start dashboard
     await switchSection('dashboard');

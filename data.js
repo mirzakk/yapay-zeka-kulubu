@@ -74,10 +74,10 @@ const DATA = {
         filter: "Filtrele",
         results: "Sonuç"
       },
-      heroBadge: "YZK · 2026 / 2027 DÖNEMİ",
+      heroBadge: "YZK · 2026 / 2027 · KURULUŞ DÖNEMİ",
       heroTitle1: "Yapay zekâ yalnızca",
       heroTitle2: "mühendislerin işi değil.",
-      heroLede: "Hukukçunun, hekimin, tasarımcının ve araştırmacının da alanı. Farklı disiplinlerden öğrencilerle modelleri derinlemesine inceliyoruz, teoriyi prototipe döküyoruz ve sonuçları açıkça paylaşıyoruz.",
+      heroLede: "Kulübümüz kuruluş onay sürecinde. Şu an yönetim ve denetim kurulunu oluşturuyoruz — farklı bölümlerden öğrencilerle birlikte, sıfırdan başlayarak. Her seviyeye açık altı atölye ve proje yıl boyunca seni bekliyor.",
       heroTitle3: "Bu masayı büyütüyoruz.",
       ctaJoin: "Kulübe Katıl",
       ctaExplore: "Odak Alanlarını Keşfet",
@@ -171,11 +171,11 @@ const DATA = {
         filter: "Filter",
         results: "Results"
       },
-      heroBadge: "YZK · 2026 / 2027 TERM",
+      heroBadge: "YZK · 2026 / 2027 · FOUNDING TERM",
       heroTitle1: "Artificial intelligence isn't",
       heroTitle2: "just for engineers.",
       heroTitle3: "We are expanding the table.",
-      heroLede: "Lawyers, physicians, designers, and educators belong here too. We dissect models alongside diverse disciplines, translate theoretical frameworks into working prototypes, and share every finding openly.",
+      heroLede: "Our club is in its official approval stage. We are currently forming the board and audit committee — together with students from different departments, starting from zero. Six workshops and projects across the year, open to every level.",
       ctaJoin: "Join the Club",
       ctaExplore: "Explore Focus Areas",
       secDiscipline: "Interdisciplinary Focus Areas",
@@ -198,8 +198,10 @@ const DATA = {
   },
 
   formspree: {
-    id: "mblggylr", // fallback or club form ID
-    recipientVerified: true,
+    // ponytail: no external form service. Applications stay in localStorage;
+    // admin panel reads the same key. A real endpoint goes here when one exists.
+    id: "",
+    recipientVerified: false,
     privacyApproved: true,
     privacyNotice: "YZK Başvuru Formu Gizlilik Bildirimi: Gönderilen kişisel bilgiler (ad, e-posta, bölüm ve motivasyon metni) yalnızca kulüp kayıt ve ekip organizasyonu sürecinde kullanılır. Üçüncü taraflarla paylaşılmaz ve ticari amaçla işlenmez."
   },
@@ -402,116 +404,144 @@ const DATA = {
     tr: [
       {
         id: "ev-01",
-        t: "Yerel LLM ve RAG Mimarileri Atölyesi",
-        p: "Ollama ve vLLM ile kendi cihazında açık kaynak modelleri çalıştırma, LangChain ve yerel ChromaDB ile güvenli RAG kurma.",
-        k: "Atölye",
-        loc: "Mühendislik Lab 3 & Çevrim İçi",
-        d: "28",
-        mo: "EKI",
-        start: "2026-10-28T18:00:00+03:00",
-        end: "2026-10-28T21:00:00+03:00",
-        cap: 60,
-        filled: 48,
+        t: "İlk Buluşma & Oryantasyon",
+        p: "Kulübün ilk yüz yüze buluşması. Birbirimizi tanıyoruz, dönem planını ve çalışma gruplarını konuşuyoruz. Yeni gelenler için kulübün nasıl işlediğine dair kısa bir tur, sonunda serbest sohbet.",
+        k: "Buluşma",
+        loc: "Marmara Üniversitesi TBMYO · Mehmet Genç Külliyesi",
+        d: "12",
+        mo: "KAS",
+        start: "2026-11-12T17:00:00+03:00",
+        end: "2026-11-12T19:30:00+03:00",
+        cap: 90,
+        filled: 0,
         registrationUrl: "#/basvuru"
       },
       {
         id: "ev-02",
-        t: "Hukuk ve Yapay Zekâ: Algoritmik Kararlara İtiraz",
-        p: "Kamu ve özel sektörde yapay zekâ kararlarının yasal temeli, KVKK uyumluluğu ve Avrupa Yapay Zekâ Yasası (EU AI Act) analizi.",
-        k: "Panel",
-        loc: "Hukuk Fakültesi Konferans Salonu",
-        d: "05",
-        mo: "KAS",
-        start: "2026-11-05T15:30:00+03:00",
-        end: "2026-11-05T18:00:00+03:00",
-        cap: 120,
-        filled: 85,
+        t: "Hermes Agent: Kurulum ve Kullanım",
+        p: "Zoom üzerinden canlı: Hermes Agent'ı kendi bilgisayarına kuruyoruz, ilk görevini tanımlıyoruz ve günlük işlerde nasıl kullanılacağını gösteriyoruz. Kurulum adımları ekranda birlikte yapılır, takılan olursa sorularla ilerleriz.",
+        k: "Çevrim İçi Atölye",
+        loc: "Zoom",
+        d: "09",
+        mo: "ARA",
+        start: "2026-12-09T19:00:00+03:00",
+        end: "2026-12-09T21:00:00+03:00",
+        cap: 150,
+        filled: 0,
         registrationUrl: "#/basvuru"
       },
       {
         id: "ev-03",
-        t: "Biyomedikal Görüntü Analizi ve Difüzyon Modelleri",
-        p: "Manyetik rezonans (MR) ve BT görüntülerinde segmentasyon teknikleri, PyTorch ile UNet ve modern difüzyon denemeleri.",
-        k: "Seminer",
-        loc: "Tıp Fakültesi Amfi 1",
-        d: "14",
-        mo: "KAS",
-        start: "2026-11-14T17:00:00+03:00",
-        end: "2026-11-14T19:30:00+03:00",
-        cap: 80,
-        filled: 62,
+        t: "Prompt Düellosu: İlk Turnuva",
+        p: "Takımlar hâlinde, aynı görevi en iyi çıktıyla çözmeye çalışıyoruz. Kod yok, sadece istem yazma ve sonucu savunma. Kazananı salon oylaması belirler; ödülü var, ciddiyeti yok.",
+        k: "Oyun",
+        loc: "TBMYO Bilgisayar Lab 2",
+        d: "20",
+        mo: "OCA",
+        start: "2027-01-20T17:00:00+03:00",
+        end: "2027-01-20T19:30:00+03:00",
+        cap: 50,
+        filled: 0,
         registrationUrl: "#/basvuru"
       },
       {
         id: "ev-04",
-        t: "YZK 48 Saatlik Hackathon: Gerçek Dünya Çözümleri",
-        p: "Farklı bölümlerden ekiplerin bir araya gelip 48 saat içinde çalışan bir prototip ve etki raporu hazırladığı dönem yarışması.",
-        k: "Hackathon",
-        loc: "Merkez İnovasyon Merkezi",
-        d: "27",
-        mo: "KAS",
-        start: "2026-11-27T10:00:00+03:00",
-        end: "2026-11-29T18:00:00+03:00",
-        cap: 100,
-        filled: 74,
+        t: "Grafiklerle Yalan Söylemek: Veri Hikâyeciliği",
+        p: "Aynı veriyi üç farklı grafikle üç farklı sonuca götürmeyi deniyoruz. Eksen kesme, ölçek oyunları ve renk seçiminin algıyı nasıl değiştirdiğini elle test ediyoruz. Sonunda herkes kendi 'yanıltıcı grafiğini' üretiyor.",
+        k: "Atölye",
+        loc: "TBMYO Bilgisayar Lab 2",
+        d: "17",
+        mo: "ŞUB",
+        start: "2027-02-17T17:00:00+03:00",
+        end: "2027-02-17T19:00:00+03:00",
+        cap: 45,
+        filled: 0,
+        registrationUrl: "#/basvuru"
+      },
+      {
+        id: "ev-05",
+        t: "Modelin Kör Noktaları: Takım Oyunu",
+        p: "Her takım bir dil modelini yanıltmaya çalışıyor: yanlış cevap verdirmek, kaynağı olmayan bir alıntı ürettirmek, basit bir soruda tökezletmek. Puanlar bulunan hataya göre veriliyor — kazanan modeli değil, onu en iyi çözen takımı alkışlıyoruz.",
+        k: "Oyun",
+        loc: "TBMYO Konferans Salonu",
+        d: "24",
+        mo: "MAR",
+        start: "2027-03-24T17:00:00+03:00",
+        end: "2027-03-24T20:00:00+03:00",
+        cap: 60,
+        filled: 0,
         registrationUrl: "#/basvuru"
       }
     ],
     en: [
       {
         id: "ev-01",
-        t: "Local LLMs and Sovereign RAG Workshop",
-        p: "Running open-weights models locally via Ollama & vLLM, building zero-leakage RAG pipelines with ChromaDB.",
-        k: "Workshop",
-        loc: "Engineering Lab 3 & Hybrid",
-        d: "28",
-        mo: "OCT",
-        start: "2026-10-28T18:00:00+03:00",
-        end: "2026-10-28T21:00:00+03:00",
-        cap: 60,
-        filled: 48,
+        t: "First Meetup & Orientation",
+        p: "Our first in-person gathering. We meet each other, walk through the term plan and working groups, and give newcomers a short tour of how the club runs. Open conversation at the end.",
+        k: "Meetup",
+        loc: "Marmara University TBMYO · Mehmet Genç Campus",
+        d: "12",
+        mo: "NOV",
+        start: "2026-11-12T17:00:00+03:00",
+        end: "2026-11-12T19:30:00+03:00",
+        cap: 90,
+        filled: 0,
         registrationUrl: "#/basvuru"
       },
       {
         id: "ev-02",
-        t: "AI & Legal Accountability: Contesting Model Outputs",
-        p: "Legal foundations of algorithmic decisions, GDPR/KVKK governance, and analyzing the EU AI Act enforcement.",
-        k: "Panel",
-        loc: "Law Faculty Main Auditorium",
-        d: "05",
-        mo: "NOV",
-        start: "2026-11-05T15:30:00+03:00",
-        end: "2026-11-05T18:00:00+03:00",
-        cap: 120,
-        filled: 85,
+        t: "Hermes Agent: Setup & Everyday Use",
+        p: "Live on Zoom: we install Hermes Agent on your own machine, define its first task, and show how to use it for everyday work. Steps happen on screen together; questions welcome throughout.",
+        k: "Online Workshop",
+        loc: "Zoom",
+        d: "09",
+        mo: "DEC",
+        start: "2026-12-09T19:00:00+03:00",
+        end: "2026-12-09T21:00:00+03:00",
+        cap: 150,
+        filled: 0,
         registrationUrl: "#/basvuru"
       },
       {
         id: "ev-03",
-        t: "Biomedical Vision & Diffusion Architectures",
-        p: "Segmentation algorithms in MRI/CT scans, PyTorch UNet implementations, and generative image synthesis boundaries.",
-        k: "Seminar",
-        loc: "Medical School Amphitheater 1",
-        d: "14",
-        mo: "NOV",
-        start: "2026-11-14T17:00:00+03:00",
-        end: "2026-11-14T19:30:00+03:00",
-        cap: 80,
-        filled: 62,
+        t: "Prompt Duel: First Tournament",
+        p: "Teams race to solve the same task with the best output. No code — just prompting and defending your result. The room votes for the winner; there is a prize, but no seriousness.",
+        k: "Game",
+        loc: "TBMYO Computer Lab 2",
+        d: "20",
+        mo: "JAN",
+        start: "2027-01-20T17:00:00+03:00",
+        end: "2027-01-20T19:30:00+03:00",
+        cap: 50,
+        filled: 0,
         registrationUrl: "#/basvuru"
       },
       {
         id: "ev-04",
-        t: "YZK 48-Hour Hackathon: Applied Solutions",
-        p: "Interdisciplinary teams build working prototypes and impact dossiers over an intensive 48-hour sprint.",
-        k: "Hackathon",
-        loc: "Central Innovation Hub",
-        d: "27",
-        mo: "NOV",
-        start: "2026-11-27T10:00:00+03:00",
-        end: "2026-11-29T18:00:00+03:00",
-        cap: 100,
-        filled: 74,
+        t: "Lying with Charts: Data Storytelling",
+        p: "We take one dataset and drive it to three different conclusions with three different charts: axis truncation, scale tricks, colour choices. Everyone leaves having built their own misleading chart.",
+        k: "Workshop",
+        loc: "TBMYO Computer Lab 2",
+        d: "17",
+        mo: "FEB",
+        start: "2027-02-17T17:00:00+03:00",
+        end: "2027-02-17T19:00:00+03:00",
+        cap: 45,
+        filled: 0,
+        registrationUrl: "#/basvuru"
+      },
+      {
+        id: "ev-05",
+        t: "Blind Spots of a Model: Team Game",
+        p: "Each team tries to break a language model: force a wrong answer, extract a citation that does not exist, trip it on a trivial question. Points scale with the find — we applaud the team that broke it, not the model.",
+        k: "Game",
+        loc: "TBMYO Conference Hall",
+        d: "24",
+        mo: "MAR",
+        start: "2027-03-24T17:00:00+03:00",
+        end: "2027-03-24T20:00:00+03:00",
+        cap: 60,
+        filled: 0,
         registrationUrl: "#/basvuru"
       }
     ]
@@ -520,80 +550,178 @@ const DATA = {
   projects: {
     tr: [
       {
-        t: "Sovereign Legal RAG — KVKK Destekli İçtihat Ajanı",
-        p: "Hukuk öğrencileri ve yazılımcıların birlikte geliştirdiği; kanun maddeleri ve yargı kararlarını vektör aramayla tarayan, kaynak gösteren yerel RAG asistanı.",
-        k: "Hukuk & NLP",
-        m: "4 üye · PyTorch, Chroma, Llama-3.3",
+        t: "Prompt Atölyesi: İlk Adım",
+        p: "Sıfırdan başlayanlar için: iyi bir istem (prompt) nasıl yazılır, model neden aynı soruya farklı yanıt verir, çıktıyı nasıl sınarız? Kod yazmadan, elle deneyerek öğreniyoruz.",
+        k: "Başlangıç",
+        m: "Ekim · 2 oturum · kod gerekmez",
         open: true,
         status: "open",
-        tags: ["RAG", "Hukuk", "Llama-3", "ChromaDB"]
+        level: "Başlangıç",
+        when: "Ekim",
+        tags: ["Prompt", "Deney Tasarımı", "Kod Yok"]
       },
       {
-        t: "BioScan — Hücresel Segmentasyon ve Anomali Dedektörü",
-        p: "Mikroskop camı taramalarında hücre çekirdeklerini otomatik tespit eden ve patoloğa belirsizlik haritası sunan açık kaynaklı bilgisayarlı görü aracı.",
-        k: "Tıp & Görü",
-        m: "3 üye · OpenCV, PyTorch, UNet",
+        t: "Veri Temizleme ve Görselleştirme",
+        p: "Dağınık bir CSV'yi alıp eksikleri tamamlıyor, aykırı değerleri işaretliyor ve anlamlı grafiklere çeviriyoruz. Python'un temel araçlarıyla, hazır veri setleri üzerinde.",
+        k: "Başlangıç",
+        m: "Kasım · 3 oturum · Python temel",
+        open: true,
+        status: "open",
+        level: "Başlangıç",
+        when: "Kasım",
+        tags: ["Pandas", "Veri Hijyeni", "Görselleştirme"]
+      },
+      {
+        t: "Hazır Modelle Metin Sınıflandırma",
+        p: "Hazır bir dil modelini indirip kendi etiketlerimizle metin sınıflandırıcı kuruyoruz: yorumları olumlu/olumsuz ayırma, şikâyet konusu tespiti gibi küçük ama çalışan bir uygulama.",
+        k: "Orta",
+        m: "Aralık · 4 oturum · Python + temel ML",
+        open: true,
+        status: "open",
+        level: "Orta",
+        when: "Aralık",
+        tags: ["HuggingFace", "Sınıflandırma", "Değerlendirme"]
+      },
+      {
+        t: "Yerel LLM ile Basit RAG",
+        p: "Kendi belgelerimizi (ders notu, kanun maddesi, kılavuz) vektör veritabanına atıp modelin bunlara dayanarak yanıt vermesini sağlıyoruz. Kaynak göstermeyi ve halüsinasyonu ölçmeyi öğreniyoruz.",
+        k: "Orta",
+        m: "Şubat · 5 oturum · Python + vektör DB",
+        open: true,
+        status: "open",
+        level: "Orta",
+        when: "Şubat",
+        tags: ["RAG", "ChromaDB", "Kaynak Gösterimi"]
+      },
+      {
+        t: "LoRA ile Türkçe İnce Ayar",
+        p: "Küçük bir açık modeli Türkçe veriyle kendi görevimize uyarlıyoruz. Düşük VRAM'de çalışan LoRA yöntemi, eğitim/doğrulama ayrımı ve aşırı öğrenmeyi (overfitting) tespit etme.",
+        k: "İleri",
+        m: "Nisan · 6 oturum · GPU/Colab",
         open: false,
         status: "active",
-        tags: ["Görüntü İşleme", "Tıp", "Segmentasyon"]
+        level: "İleri",
+        when: "Nisan",
+        tags: ["LoRA", "Fine-tuning", "Türkçe NLP"]
       },
       {
-        t: "SözcükUzayı — Türkçe Dil Modelleri İçin Kıyaslama Testi",
-        p: "Açık kaynak Türkçe modellerin mantık yürütme, Türkçe deyimler ve halüsinasyon direnci performansını ölçen bağımsız test paketi.",
-        k: "NLP & Değerlendirme",
-        m: "5 üye · HuggingFace, Datasets, Python",
-        open: true,
-        status: "open",
-        tags: ["Benchmark", "Türkçe LLM", "Değerlendirme"]
-      },
-      {
-        t: "EkoPazar — Enflasyon ve Fiyat Dinamiği Simülatörü",
-        p: "Tüketici sepeti ve çevrim içi market fiyatlarını günlük takip ederek mikro tahmin modelleri üreten açık veri paneli.",
-        k: "Ekonomi & Veri",
-        m: "2 üye · Pandas, Scikit-learn, SQLite",
+        t: "Çok Adımlı Ajan Sistemi",
+        p: "Bir hedefi alt görevlere bölen, araç çağıran (arama, kod çalıştırma, dosya okuma) ve sonucu kendi kendine denetleyen bir ajan kuruyoruz. Hata yollarını ve güvenlik sınırlarını birlikte tasarlıyoruz.",
+        k: "İleri",
+        m: "Mayıs · 6 oturum · ileri seviye",
         open: false,
-        status: "completed",
-        tags: ["Zaman Serisi", "Veri Analizi", "Ekonomi"]
+        status: "active",
+        level: "İleri",
+        when: "Mayıs",
+        tags: ["Ajan", "Araç Kullanımı", "Güvenlik"]
       }
     ],
     en: [
       {
-        t: "Sovereign Legal RAG — Case Law Research Agent",
-        p: "A localized RAG assistant co-developed by law and engineering students, performing semantic search over legal jurisprudence with verifiable citations.",
-        k: "Law & NLP",
-        m: "4 members · PyTorch, Chroma, Llama-3.3",
+        t: "Prompt Workshop: First Steps",
+        p: "For absolute beginners: how to write a good prompt, why the same question yields different answers, and how to test output. No code, just hands-on experiments.",
+        k: "Beginner",
+        m: "October · 2 sessions · no code required",
         open: true,
         status: "open",
-        tags: ["RAG", "LegalTech", "Llama-3", "ChromaDB"]
+        level: "Beginner",
+        when: "October",
+        tags: ["Prompting", "Experiment Design", "No Code"]
       },
       {
-        t: "BioScan — Cellular Segmentation & Anomaly Suite",
-        p: "Open-source computer vision pipeline detecting cellular nuclei in histology slides and providing calibrated uncertainty maps to pathologists.",
-        k: "Health & Vision",
-        m: "3 members · OpenCV, PyTorch, UNet",
+        t: "Data Cleaning & Visualization",
+        p: "Take a messy CSV, fill gaps, flag outliers and turn it into meaningful charts. Built on real datasets with the core Python toolkit.",
+        k: "Beginner",
+        m: "November · 3 sessions · basic Python",
+        open: true,
+        status: "open",
+        level: "Beginner",
+        when: "November",
+        tags: ["Pandas", "Data Hygiene", "Visualization"]
+      },
+      {
+        t: "Text Classification with a Pretrained Model",
+        p: "Download a pretrained language model and build a working text classifier with your own labels: sentiment, complaint category, and similar small but real tasks.",
+        k: "Intermediate",
+        m: "December · 4 sessions · Python + basic ML",
+        open: true,
+        status: "open",
+        level: "Intermediate",
+        when: "December",
+        tags: ["HuggingFace", "Classification", "Evaluation"]
+      },
+      {
+        t: "Simple RAG with a Local LLM",
+        p: "Embed your own documents (lecture notes, statutes, manuals) into a vector store and let a local model answer from them — with citations and a measured hallucination rate.",
+        k: "Intermediate",
+        m: "February · 5 sessions · Python + vector DB",
+        open: true,
+        status: "open",
+        level: "Intermediate",
+        when: "February",
+        tags: ["RAG", "ChromaDB", "Citations"]
+      },
+      {
+        t: "Turkish Fine-Tuning with LoRA",
+        p: "Adapt a small open model to our own Turkish task. Low-VRAM LoRA, train/validation splits, and detecting overfitting in practice.",
+        k: "Advanced",
+        m: "April · 6 sessions · GPU/Colab",
         open: false,
         status: "active",
-        tags: ["Computer Vision", "Healthcare", "UNet"]
+        level: "Advanced",
+        when: "April",
+        tags: ["LoRA", "Fine-tuning", "Turkish NLP"]
       },
       {
-        t: "Turkish LLM Reasoning & Hallucination Benchmark",
-        p: "An independent evaluation testbed measuring reasoning, Turkish idiomatic comprehension, and factual calibration across open models.",
-        k: "NLP & Evaluation",
-        m: "5 members · HuggingFace, Datasets, Python",
-        open: true,
-        status: "open",
-        tags: ["Benchmark", "Turkish LLM", "Evaluation"]
-      },
-      {
-        t: "EcoMarket — Inflation & Micro-Price Dynamics",
-        p: "Daily commodity price monitoring pipeline forecasting basket variations through lightweight regression and time-series models.",
-        k: "Economy & Data",
-        m: "2 members · Pandas, Scikit-learn, SQLite",
+        t: "Multi-Step Agent Systems",
+        p: "Build an agent that decomposes a goal, calls tools (search, code execution, file reading) and audits its own result. We design failure paths and safety boundaries together.",
+        k: "Advanced",
+        m: "May · 6 sessions · advanced",
         open: false,
-        status: "completed",
-        tags: ["Time Series", "Economics", "Analytics"]
+        status: "active",
+        level: "Advanced",
+        when: "May",
+        tags: ["Agents", "Tool Use", "Safety"]
       }
     ]
+  },
+
+  /* ── ÖNE ÇIKAN DUYURU (ana sayfa üstü) ── */
+  announce: {
+    tr: {
+      kicker: "SON BAŞVURU · 23 EKİM 23:00",
+      ribbon: "YÖNETİM & DENETİM KURULU",
+      title: "Yönetim ve Denetim Kurulu için başvurular açıldı.",
+      body: "Kulübümüz kuruluş onay sürecinde. Bu dönem 12 kişilik yönetim ve 6 kişilik denetim kurulunu birlikte kuruyoruz. Hesap açmana gerek yok; formu doldurman yeterli. Son başvuru 23 Ekim 23:00.",
+      primary: "Hemen Başvur",
+      secondary: "Süreci Gör",
+      meta: ["Hesap gerekmez", "Önlisans + lisans", "E-posta ile dönüş"],
+      seats: "18 KADRO",
+      stats: [
+        { n: "12", l: "YÖNETİM KURULU" },
+        { n: "06", l: "DENETİM KURULU" }
+      ],
+      stamp: "23 EKİM 23:00",
+      deadline: "2026-10-23T23:00:00+03:00",
+      alt: "Yönetim kurulu toplantı masası"
+    },
+    en: {
+      kicker: "DEADLINE · OCT 23, 23:00",
+      ribbon: "BOARD & AUDIT COMMITTEE",
+      title: "Applications are open for the Board and Audit Committee.",
+      body: "Our club is in its official approval stage. This term we are forming a 12-seat board and a 6-seat audit committee. No account needed; just fill in the form. Deadline: October 23, 23:00.",
+      primary: "Apply Now",
+      secondary: "See the Process",
+      meta: ["No account needed", "Associate + bachelor", "Email response"],
+      seats: "18 SEATS",
+      stats: [
+        { n: "12", l: "BOARD" },
+        { n: "06", l: "AUDIT" }
+      ],
+      stamp: "OCT 23, 23:00",
+      deadline: "2026-10-23T23:00:00+03:00",
+      alt: "Board meeting table"
+    }
   },
 
   digest: {
@@ -603,7 +731,7 @@ const DATA = {
         why: "Düşünce zinciri (chain-of-thought) ve takviyeli öğrenme ile eğitilen açık ağırlıklı modeller, mantık ve kodlama testlerinde tescilli kapalı sistemlerle yarışıyor.",
         src: "Araştırma Notu",
         k: "Modeller",
-        tint: "#00F0FF",
+        tint: "#E8A33D",
         url: "https://arxiv.org/abs/2412.19437"
       },
       {
@@ -637,7 +765,7 @@ const DATA = {
         why: "Chain-of-thought architectures optimized via reinforcement learning now rival closed proprietary systems across logic and competitive coding benchmarks.",
         src: "Research Note",
         k: "Models",
-        tint: "#00F0FF",
+        tint: "#E8A33D",
         url: "https://arxiv.org/abs/2412.19437"
       },
       {
@@ -726,100 +854,82 @@ const DATA = {
   teamAds: {
     tr: [
       {
-        role: "PyTorch & Veri Mühendisi",
-        cat: "Biyomedikal AI",
-        by: "BioScan Ekibi",
-        need: ["PyTorch", "Python", "Tıbbi Görüntüleme", "Git"],
-        desc: "Hücre çekirdeği tespiti projemizde veri ön işleme boru hattı ve UNet model eğitimini yönetecek çalışma arkadaşı arıyoruz."
+        role: "Veri Gönüllüsü",
+        cat: "Veri Temizleme Atölyesi",
+        by: "Atölye Grubu",
+        need: ["Temel Python", "Excel/CSV", "Merak"],
+        desc: "Atölyede kullanılacak açık veri setlerini bulup temizleyecek, eksik ve aykırı değerleri belgeleyecek gönüllüler arıyoruz. Kod bilgisi şart değil."
       },
       {
-        role: "Frontend Geliştirici & UI Tasarımcısı",
-        cat: "Sovereign Legal RAG",
-        by: "Hukuk AI Grubu",
-        need: ["HTML/CSS/JS", "Figma", "UI/UX", "API Entegrasyonu"],
-        desc: "Hukukçuların ve vatandaşların karmaşık kanun metinlerini kolayca sorgulayabileceği temiz, erişilebilir bir arayüz tasarlıyoruz."
+        role: "Prompt Deneycisi",
+        cat: "Prompt Atölyesi",
+        by: "Atölye Grubu",
+        need: ["Yazma", "Gözlem", "Kayıt Tutma"],
+        desc: "Aynı soruya farklı istemlerle yanıt alıp sonuçları tabloya dökecek, hangi kalıbın neden işe yaradığını tartışacak kişiler arıyoruz."
       },
       {
-        role: "Araştırmacı & Prompt Mühendisi",
-        cat: "Türkçe LLM Değerlendirme",
-        by: "SözcükUzayı Ekibi",
-        need: ["NLP", "Türkçe Dilbilgisi", "Benchmark", "Eleştirel Düşünme"],
-        desc: "Türkçe deyimler, mantık yürütme tuzakları ve halüsinasyon test setleri hazırlayacak araştırmacılar arıyoruz."
+        role: "RAG Test Gönüllüsü",
+        cat: "Yerel LLM & RAG",
+        by: "RAG Grubu",
+        need: ["Okuma", "Soru Hazırlama", "Türkçe"],
+        desc: "Kendi belgelerimizden oluşan test seti için soru-cevap çiftleri hazırlayacak, modelin kaynak gösterip göstermediğini işaretleyecek gönüllüler arıyoruz."
       }
     ],
     en: [
       {
-        role: "PyTorch & Data Engineer",
-        cat: "Biomedical AI",
-        by: "BioScan Team",
-        need: ["PyTorch", "Python", "Medical Imaging", "Git"],
-        desc: "Looking for an engineer to lead image preprocessing pipelines and UNet segmentation training for cellular nuclei detection."
+        role: "Data Volunteer",
+        cat: "Data Cleaning Workshop",
+        by: "Workshop Group",
+        need: ["Basic Python", "Excel/CSV", "Curiosity"],
+        desc: "Looking for volunteers to source and clean open datasets for the workshop, documenting gaps and outliers. No coding required."
       },
       {
-        role: "Frontend Developer & UI Designer",
-        cat: "Sovereign Legal RAG",
-        by: "Legal AI Group",
-        need: ["HTML/CSS/JS", "Figma", "UI/UX", "API Integration"],
-        desc: "Designing an accessible, high-performance interface allowing legal researchers to query case jurisprudence intuitively."
+        role: "Prompt Experimenter",
+        cat: "Prompt Workshop",
+        by: "Workshop Group",
+        need: ["Writing", "Observation", "Record Keeping"],
+        desc: "We need people to run the same question through different prompts, tabulate the results, and discuss why certain patterns work."
       },
       {
-        role: "NLP Researcher & Prompt Engineer",
-        cat: "Turkish LLM Benchmark",
-        by: "SözcükUzayı Team",
-        need: ["NLP", "Linguistics", "Benchmarking", "Evaluation"],
-        desc: "Curating challenging reasoning datasets, idiomatic edge cases, and hallucination prompts for evaluation."
+        role: "RAG Test Volunteer",
+        cat: "Local LLM & RAG",
+        by: "RAG Group",
+        need: ["Reading", "Question Writing", "Turkish"],
+        desc: "Looking for volunteers to build question-answer pairs for our document test set and flag whether the model cites its sources."
       }
     ]
   },
 
   boardMembers: {
     tr: [
-      { name: "Başkan & Koordinatör", role: "Kulüp Başkanı", department: "Mühendislik & Bilgisayar" },
-      { name: "Teknik Çalışma Lideri", role: "Teknik Lider (ML/NLP)", department: "Yazılım Mühendisliği" },
-      { name: "Disiplinler Arası Koordinatör", role: "Etik & Sosyal Etki", department: "Hukuk Fakültesi" },
-      { name: "Etkinlik & Atölye Sorumlusu", role: "Organizasyon", department: "Tıp & Biyomedikal" },
-      { name: "Görsel İletişim & Tasarım", role: "Tasarım Lideri", department: "Görsel İletişim Tasarımı" }
+      { name: "Mirza Kıraç Kiraz", role: "Kulüp Başkanı", department: "Kurucu · Yönetim ve Denetim Kurulu Başvuruları Açık" }
     ],
     en: [
-      { name: "President & Coordinator", role: "Club President", department: "Computer Science" },
-      { name: "Technical Working Group Lead", role: "Technical Lead (ML/NLP)", department: "Software Engineering" },
-      { name: "Interdisciplinary Liaison", role: "Ethics & Social Impact", department: "Faculty of Law" },
-      { name: "Workshops & Events Director", role: "Events Lead", department: "Medicine & Biomedical" },
-      { name: "Visual Media & Experience", role: "Design Lead", department: "Visual Communication" }
+      { name: "Mirza Kıraç Kiraz", role: "Club President", department: "Founder · Board & Audit applications open" }
     ]
   },
 
   members: {
-    tr: [
-      ["Ahmet Kaya", "Bilgisayar Mühendisliği · 3. Sınıf", ["PyTorch", "RAG", "MLOps"]],
-      ["Zeynep Çelik", "Hukuk Fakültesi · 4. Sınıf", ["YZ Etiği", "Telif Hukuku", "KVKK"]],
-      ["Can Demir", "Tıp Fakültesi · Dönem 4", ["Biyomedikal Görüntüleme", "Biyoistatistik"]],
-      ["Elif Aydın", "Görsel İletişim Tasarımı · 3. Sınıf", ["UI/UX", "Üretken Sanat", "Figma"]],
-      ["Burak Yılmaz", "İktisat & Ekonometri · 3. Sınıf", ["Zaman Serisi", "Tahmin Modelleri", "Python"]],
-      ["Selin Koç", "Endüstri Mühendisliği · 2. Sınıf", ["Optimizasyon", "Süreç Madenciliği"]]
-    ],
-    en: [
-      ["Ahmet Kaya", "Computer Engineering · Junior", ["PyTorch", "RAG", "MLOps"]],
-      ["Zeynep Çelik", "Law School · Senior", ["AI Ethics", "Copyright Law", "Privacy"]],
-      ["Can Demir", "School of Medicine · Year 4", ["Biomedical Imaging", "Biostatistics"]],
-      ["Elif Aydın", "Visual Communication · Junior", ["UI/UX", "Generative Art", "Figma"]],
-      ["Burak Yılmaz", "Economics & Econometrics · Junior", ["Time Series", "Forecasting", "Python"]],
-      ["Selin Koç", "Industrial Engineering · Sophomore", ["Optimization", "Process Mining"]]
-    ]
+    tr: [],
+    en: []
   },
 
   leaderboard: {
     tr: [
-      { name: "BioScan Hücre Segmentasyonu", contribution: "Model eğitimi ve veri seti temizleme", points: "450" },
-      { name: "Sovereign Legal RAG", contribution: "ChromaDB ve yerel vektör indeksleme", points: "410" },
-      { name: "SözcükUzayı Benchmark", contribution: "1200 Türkçe değerlendirme sorusu", points: "380" },
-      { name: "YZK Web Sitesi & Açık Lab", contribution: "İnteraktif araçlar ve optimizasyon", points: "360" }
+      { name: "Prompt Atölyesi", contribution: "Henüz katkı kaydı yok", points: "0" },
+      { name: "Veri Temizleme Atölyesi", contribution: "Henüz katkı kaydı yok", points: "0" },
+      { name: "Metin Sınıflandırma", contribution: "Henüz katkı kaydı yok", points: "0" },
+      { name: "Yerel LLM & RAG", contribution: "Henüz katkı kaydı yok", points: "0" },
+      { name: "LoRA İnce Ayar", contribution: "Henüz katkı kaydı yok", points: "0" },
+      { name: "Ajan Sistemleri", contribution: "Henüz katkı kaydı yok", points: "0" }
     ],
     en: [
-      { name: "BioScan Cell Segmentation", contribution: "Model training and dataset hygiene", points: "450" },
-      { name: "Sovereign Legal RAG", contribution: "ChromaDB and local vector indexing", points: "410" },
-      { name: "SözcükUzayı Benchmark", contribution: "1200 Turkish reasoning evaluation items", points: "380" },
-      { name: "YZK Website & Open Lab", contribution: "Interactive diagnostic tools and UI", points: "360" }
+      { name: "Prompt Workshop", contribution: "No contribution recorded yet", points: "0" },
+      { name: "Data Cleaning Workshop", contribution: "No contribution recorded yet", points: "0" },
+      { name: "Text Classification", contribution: "No contribution recorded yet", points: "0" },
+      { name: "Local LLM & RAG", contribution: "No contribution recorded yet", points: "0" },
+      { name: "LoRA Fine-Tuning", contribution: "No contribution recorded yet", points: "0" },
+      { name: "Agent Systems", contribution: "No contribution recorded yet", points: "0" }
     ]
   }
 };

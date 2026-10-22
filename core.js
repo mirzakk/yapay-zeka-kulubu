@@ -130,11 +130,24 @@
 
   /* ---------- MARQUEE / TICKER ---------- */
   function drawMarquee() {
-    const el = document.getElementById("marquee");
-    if (!el) return;
-    const items = T[lang].ticker;
-    el.innerHTML = `<div class="marquee-inner">${items.map(t => `<span>${esc(t)}</span>`).join("")}</div>`;
-  }
+      const el = document.getElementById("marquee");
+      if (!el) return;
+      const items = T[lang].ticker;
+      el.innerHTML = `<div class="marquee-inner">${items.map(t => `<span>${esc(t)}</span>`).join("")}</div>`;
+      // auto speed: ~12 sn / öğe (insan okuma hızı)
+      const inner = el.querySelector(".marquee-inner");
+      if (inner) {
+        // ölç: her span genişliği + gap (36px) * (items-1)
+        const spans = inner.querySelectorAll("span");
+        let totalW = 0;
+        spans.forEach(s => { totalW += s.getBoundingClientRect().width; });
+        totalW += 36 * (items.length - 1);
+        // viewport genişliği kadar kaydırma => süre = (totalW / viewportW) * 12s/öğe yaklaşık
+        const vw = document.documentElement.clientWidth;
+        const duration = Math.max(20, Math.min(120, (totalW / Math.max(1, vw)) * 12));
+        inner.style.setProperty("--marquee-dur", duration + "s");
+      }
+    }
 
   /* ---------- DİSİPLİNLER KARTLARI ---------- */
   function wallCardsHtml() {
@@ -181,7 +194,7 @@
 
     const nodeCount = 50;
     const nodes = [];
-    const colors = ["#00F0FF", "#D4F16C", "#A78BFA"];
+    const colors = ["#E8A33D", "#D4F16C", "#A78BFA"];
 
     for (let i = 0; i < nodeCount; i++) {
       nodes.push({
@@ -286,7 +299,105 @@
     draw();
   }
 
-  /* ---------- GÖRÜNÜM: ANA SAYFA ---------- */
+  /* ---------- GERİ SAYIM (tek interval, tüm [data-cd] öğeleri) ---------- */
+  let cdTimer = null;
+  function cdParts(deadlineIso) {
+    const left = new Date(deadlineIso).getTime() - Date.now();
+    if (left <= 0) return { done: true, d: 0, h: 0, m: 0, s: 0 };
+    return {
+      done: false,
+      d: Math.floor(left / 86400000),
+      h: Math.floor((left % 86400000) / 3600000),
+      m: Math.floor((left % 3600000) / 60000),
+      s: Math.floor((left % 60000) / 1000)
+    };
+  }
+  // markup: data-cd="ISO" + data-cd-layout="block|inline"
+  function countdownHtml(deadlineIso, layout = "inline") {
+    const dl = DATA.announce[lang].deadline;
+    const p = cdParts(dl);
+    if (p.done) {
+      return `<span class="cd cd-done" data-cd="${esc(dl)}" data-cd-layout="${layout}">
+        <b>${esc(fmt("BAŞVURU KAPANDI", "CLOSED"))}</b>
+      </span>`;
+    }
+    const pad = n => String(n).padStart(2, "0");
+    const cells = [
+      { v: pad(p.d), l: fmt("GÜN", "DAYS") },
+      { v: pad(p.h), l: fmt("SAAT", "HRS") },
+      { v: pad(p.m), l: fmt("DAKİKA", "MIN") },
+      { v: pad(p.s), l: fmt("SANİYE", "SEC") }
+    ];
+    return `<span class="cd cd-${layout}" data-cd="${esc(dl)}" data-cd-layout="${layout}" role="timer" aria-live="off">
+      ${cells.map(c => `<span class="cd-cell"><b data-cd-v="${c.l}">${c.v}</b><i>${c.l}</i></span>`).join("")}
+    </span>`;
+  }
+  function tickCountdowns() {
+    document.querySelectorAll("[data-cd]").forEach(el => {
+      const p = cdParts(el.dataset.cd);
+      const cells = el.querySelectorAll(".cd-cell b");
+      if (p.done) {
+        el.classList.add("cd-done");
+        el.innerHTML = `<b>${esc(fmt("BAŞVURU KAPANDI", "CLOSED"))}</b>`;
+        return;
+      }
+      if (cells.length !== 4) return;
+      const pad = n => String(n).padStart(2, "0");
+      cells[0].textContent = pad(p.d);
+      cells[1].textContent = pad(p.h);
+      cells[2].textContent = pad(p.m);
+      cells[3].textContent = pad(p.s);
+    });
+  }
+  function startCountdowns() {
+    if (cdTimer) clearInterval(cdTimer);
+    tickCountdowns();
+    cdTimer = setInterval(tickCountdowns, 1000);
+  }
+
+  /* ---------- ÖNE ÇIKAN DUYURU KARTI ---------- */
+  function announceCard() {
+    const A = DATA.announce[lang];
+    return `
+      <a class="announce" href="#/basvuru" aria-label="${esc(A.title)} — ${esc(A.primary)}">
+        <span class="announce-visual">
+          <img src="./images/duyuru-kurul.jpg" alt="${esc(A.alt)}" loading="eager" width="720" height="480">
+          <span class="announce-visual-scrim" aria-hidden="true"></span>
+          <span class="announce-visual-top">
+            <span class="announce-ribbon">${esc(A.ribbon)}</span>
+            <span class="announce-seats">${esc(A.seats)}</span>
+          </span>
+          <span class="announce-stamp" aria-hidden="true">
+            <b>${esc(A.stamp)}</b>
+            <i>${esc(A.kicker)}</i>
+          </span>
+          <span class="announce-cd">${countdownHtml(A.deadline, "block")}</span>
+        </span>
+
+        <span class="announce-body">
+          <span class="announce-kicker">
+            <span class="announce-dot" aria-hidden="true"></span>${esc(A.kicker)}
+          </span>
+          <span class="announce-title">${esc(A.title)}</span>
+          <span class="announce-text">${esc(A.body)}</span>
+          <span class="announce-meta">
+            ${A.meta.map(m => `<span>${esc(m)}</span>`).join("")}
+          </span>
+          <span class="announce-cd-inline">
+            <span class="announce-cd-label">${esc(fmt("Kalan süre", "Time left"))}</span>
+            ${countdownHtml(A.deadline, "inline")}
+          </span>
+          <span class="announce-actions">
+            <span class="announce-cta">${esc(A.primary)} <span aria-hidden="true">↗</span></span>
+            <span class="announce-ghost">${esc(A.secondary)}</span>
+          </span>
+          <span class="announce-stats">
+            ${A.stats.map(s => `<span class="announce-stat"><b>${esc(s.n)}</b><i>${esc(s.l)}</i></span>`).join("")}
+          </span>
+        </span>
+      </a>`;
+  }
+
   function renderHome() {
     const L = T[lang];
     const disciplines = DATA.disciplinesAll[lang];
@@ -295,6 +406,17 @@
     const digest = DATA.digest[lang];
 
     view().innerHTML = `
+      ${announceCard()}
+
+      <div class="status-banner">
+        <span class="status-dot" aria-hidden="true"></span>
+        <b>${esc(fmt("KULÜP KURULUŞ ONAY SÜRECİNDE", "CLUB IN OFFICIAL APPROVAL STAGE"))}</b>
+        <span class="status-sep" aria-hidden="true">·</span>
+        <span>${esc(fmt("Yönetim ve denetim kurulu başvuruları açık — son tarih 23 Ekim 23:00", "Board & audit applications open — deadline Oct 23, 23:00"))}</span>
+        ${countdownHtml(DATA.announce[lang].deadline, "inline")}
+        <a href="#/basvuru" class="status-link">${esc(fmt("Başvur", "Apply"))} ↗</a>
+      </div>
+
       <section class="hero hero-home">
         <div class="hero-copy">
           <div class="eyebrow">
@@ -468,7 +590,7 @@
           <p>${esc(e.p)}</p>
           <div class="cap"><i style="width:${pct}%"></i></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-            <span class="cap-label">${filled} / ${cap} ${esc(T[lang].kayıt)} (${pct}%)</span>
+            <span class="cap-label">${filled === 0 ? esc(fmt("Kontenjan açık · 0/" + cap, "Seats open · 0/" + cap)) : `${filled} / ${cap} ${esc(T[lang].kayıt)} (${pct}%)`}</span>
             <a class="btn"  href="#/basvuru">${esc(fmt("Kaydol", "RSVP"))} ↗</a>
           </div>
         </div>
@@ -476,18 +598,29 @@
   }
 
   function projCard(p) {
+    const lvl = p.level || p.k;
+    const lvlColor = /Başlangıç|Beginner/i.test(lvl) ? "var(--lime)"
+                   : /Orta|Intermediate/i.test(lvl) ? "var(--cyan)"
+                   : "var(--violet)";
+    const lvlBg = /Başlangıç|Beginner/i.test(lvl) ? "rgba(201,224,92,.12)"
+                : /Orta|Intermediate/i.test(lvl) ? "rgba(232,163,61,.12)"
+                : "rgba(139,123,240,.12)";
     return `
       <div class="card spotlight-card reveal">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-          <span class="k">${esc(p.k)}</span>
-          ${p.open ? `<span class="pill" style="color:var(--lime);border-color:var(--lime);">● ${esc(T[lang].openPos)}</span>` : `<span class="pill">● ${esc(fmt("Aktif", "Active"))}</span>`}
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="pill" style="color:${lvlColor};border-color:${lvlColor};background:${lvlBg};font-weight:700;letter-spacing:.06em;">${esc(lvl)}</span>
+          ${p.when ? `<span class="pill" style="color:var(--dim);">${esc(p.when)}</span>` : ""}
         </div>
         <h3>${esc(p.t)}</h3>
         <p>${esc(p.p)}</p>
         <div style="margin-top:14px;">
           ${(p.tags || []).map(t => `<span class="pill">${esc(t)}</span>`).join("")}
         </div>
-        <div class="meta">${esc(p.m)}</div>
+        <div class="meta" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <span>${esc(p.m)}</span>
+          ${p.open ? `<span style="color:var(--lime);font:700 9.5px var(--mono);letter-spacing:.08em;">● ${esc(T[lang].openPos)}</span>`
+                   : `<span style="color:var(--dim);font:700 9.5px var(--mono);letter-spacing:.08em;">○ ${esc(fmt("KADRO DOLU", "TEAM FULL"))}</span>`}
+        </div>
       </div>`;
   }
 
@@ -681,9 +814,10 @@
 
       <div class="filter-tabs" style="margin-top:8px;">
         <button class="filter-tab active" data-filter="all">${esc(fmt("Tümü", "All"))} (${projs.length})</button>
+        <button class="filter-tab" data-filter="beginner">${esc(fmt("Başlangıç", "Beginner"))}</button>
+        <button class="filter-tab" data-filter="intermediate">${esc(fmt("Orta", "Intermediate"))}</button>
+        <button class="filter-tab" data-filter="advanced">${esc(fmt("İleri", "Advanced"))}</button>
         <button class="filter-tab" data-filter="open">${esc(fmt("Ekip Arıyor", "Hiring"))}</button>
-        <button class="filter-tab" data-filter="active">${esc(fmt("Aktif", "Active"))}</button>
-        <button class="filter-tab" data-filter="completed">${esc(fmt("Tamamlandı", "Completed"))}</button>
       </div>
 
       <div class="grid g2" id="projGrid">
@@ -697,7 +831,14 @@
         document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const f = btn.dataset.filter;
-        const filtered = f === 'all' ? projs : projs.filter(p => p.status === f);
+        const filtered = f === 'all' ? projs : projs.filter(p => {
+          if (f === 'open') return p.open;
+          const lvl = (p.level || p.k || '').toLowerCase();
+          if (f === 'beginner') return /başlangıç|beginner/.test(lvl);
+          if (f === 'intermediate') return /orta|intermediate/.test(lvl);
+          if (f === 'advanced') return /ileri|advanced/.test(lvl);
+          return p.status === f;
+        });
         grid.innerHTML = filtered.length ? filtered.map(projCard).join('') : emptyState(fmt('Bu filtreyle proje bulunamadı.', 'No projects match this filter.'), false);
         attachSpotlights();
       });
@@ -720,6 +861,7 @@
       </div>
     `;
     attachSpotlights();
+    startCountdowns();
   }
 
   /* ---------- GÖRÜNÜM: MAKALELER ---------- */
@@ -978,13 +1120,15 @@
   /* ---------- GÖRÜNÜM: ÜYELER & YÖNETİM & LİDERLİK ---------- */
   function renderUyeler() {
     const members = DATA.members[lang];
+    const has = members && members.length;
     view().innerHTML = `
       <section class="hero">
         <span class="lab" style="color:var(--cyan);">TOPLULUK</span>
         <h1>${esc(fmt("Kulüp Üyelerimiz", "Community Members"))}</h1>
-        <p class="lede">${esc(fmt("Farklı fakültelerden bir araya gelen öğrenci araştırmacılar.", "Student researchers united across different faculties."))}</p>
+        <p class="lede">${esc(fmt("Kulübümüz kuruluş onay sürecinde. Üye kayıtları onayın ardından, yönetim ve denetim kurulu oluştuktan sonra burada listelenecek.", "The club is in its official approval stage. Member records will be listed here once approved and after the board and audit committee is formed."))}</p>
       </section>
-      <div class="grid g3" style="margin-top:30px;">
+
+      ${has ? `<div class="grid g3" style="margin-top:30px;">
         ${members.map(m => {
           const initials = m[0].split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
           return `
@@ -996,26 +1140,34 @@
                   <div class="member-dept">${esc(m[1])}</div>
                 </div>
               </div>
-              <div class="tag-list">${m[2].map(s => `<span class="pill">${esc(s)}</span>`).join('')}</div>
-            </div>
-          `;
+              <div class="tag-list">${(m[2] || []).map(s => `<span class="pill">${esc(s)}</span>`).join('')}</div>
+            </div>`;
         }).join('')}
-      </div>
+      </div>`
+      : `<div class="empty-state" style="margin-top:32px;">
+          <div class="empty-icon">○</div>
+          <h3>${esc(fmt("Henüz listelenmiş üye yok", "No members listed yet"))}</h3>
+          <p>${esc(fmt("Kulüp onay sürecinde olduğu için üye kaydı henüz açılmadı. Onay sonrası bu alan dolacak.", "Membership registration is not open while the club is awaiting approval. This area will fill in after approval."))}</p>
+          <a class="btn solid" href="#/basvuru" style="margin-top:18px;">${esc(fmt("Yönetim / Denetim Başvurusu", "Board / Audit Application"))} ↗</a>
+        </div>`}
     `;
     attachSpotlights();
   }
 
   function renderYonetim() {
     const board = DATA.boardMembers[lang];
+    const openSeats = DATA.announce[lang].stats;
     view().innerHTML = `
       <section class="hero">
         <span class="lab" style="color:var(--cyan);">ORGANİZASYON</span>
         <h1>${esc(fmt("Kulüp Yönetim Kadrosu", "Executive Board"))}</h1>
-        <p class="lede">${esc(fmt("Dönem faaliyetlerini, çalışma gruplarını ve etkinlikleri koordine eden ekip.", "The team coordinating annual initiatives, working groups and partnerships."))}</p>
+        <p class="lede">${esc(fmt("Kulübümüz kuruluş onay sürecinde. Yönetim ve denetim kurulu şu anda başvurularla oluşturuluyor.", "The club is in its official approval stage. The board and audit committee are being formed from current applications."))}</p>
         <div class="cta-row" style="margin-top:20px;">
-          <a class="btn solid" href="#/yk-basvuru">${esc(fmt("Yönetim Ekibine Başvur", "Apply for Board Role"))} ↗</a>
+          <a class="btn solid" href="#/basvuru">${esc(fmt("Yönetim / Denetim Başvurusu", "Board / Audit Application"))} ↗</a>
+          ${countdownHtml(DATA.announce[lang].deadline, "inline")}
         </div>
       </section>
+
       <div class="grid g3" style="margin-top:30px;">
         ${board.map(b => `
           <div class="spotlight-card reveal">
@@ -1024,9 +1176,19 @@
             <p style="color:var(--muted);font-size:13px;">${esc(b.department)}</p>
           </div>
         `).join("")}
+        ${openSeats.map(s => `
+          <div class="spotlight-card reveal seat-card">
+            <span class="lab" style="color:var(--cyan);">${esc(fmt("AÇIK KADRO", "OPEN SEATS"))}</span>
+            <h3 class="seat-count">${esc(s.n)}</h3>
+            <p class="seat-label">${esc(s.l)}</p>
+            <p style="color:var(--muted);font-size:13px;">${esc(fmt("Başvurulara açık — 23 Ekim 23:00'a kadar.", "Open for applications — until Oct 23, 23:00."))}</p>
+            <a class="btn sm" href="#/basvuru" style="margin-top:12px;display:inline-flex;">${esc(fmt("Başvur", "Apply"))} ↗</a>
+          </div>
+        `).join("")}
       </div>
     `;
     attachSpotlights();
+    startCountdowns();
   }
 
   function renderLiderlik() {
@@ -1058,60 +1220,100 @@
   }
 
   /* ---------- GÖRÜNÜM: BAŞVURU FORMU ---------- */
-  function renderApplication(defaultType = "membership") {
-    const L = T[lang];
+  function renderApplication(defaultType = "board") {
+    const A = DATA.announce[lang];
+    const apps = (() => { try { return JSON.parse(localStorage.getItem('yzk-applications') || '[]'); } catch { return []; } })();
+    const total = apps.length;
+    const boardCount = apps.filter(a => a.application_type === 'board').length;
+    const auditCount = apps.filter(a => a.application_type === 'audit').length;
+    const deadline = new Date(A.deadline);
+    const closed = Date.now() > deadline.getTime();
+    const left = Math.max(0, deadline.getTime() - Date.now());
+    const days = Math.floor(left / 86400000);
+    const hours = Math.floor((left % 86400000) / 3600000);
+
     view().innerHTML = `
       <section class="hero">
-        <span class="lab" style="color:var(--cyan);">KATILIM AÇIK</span>
-        <h1>${esc(fmt("Masada Sana da Yer Var.", "Take a Seat at the Table."))}</h1>
-        <p class="lede">${esc(fmt("Kulüp üyeliği veya yönetim kadrosu için başvuru türünü seç ve formunu ilet.", "Choose whether you are applying for general membership or a board leadership role."))}</p>
+        <span class="lab" style="color:var(--cyan);">${esc(fmt("KURULUŞ SÜRECİ · BAŞVURU AÇIK", "FORMATION · APPLICATIONS OPEN"))}</span>
+        <h1>${esc(fmt("Yönetim ve Denetim Kurulu Başvurusu", "Board & Audit Committee Application"))}</h1>
+        <p class="lede">${esc(fmt("Kulübümüz onay sürecinde. Bu dönem yönetim ve denetim kurulunu birlikte kuruyoruz. Hesap açmana gerek yok — bilgilerini doldurman yeterli.", "Our club is in its official approval stage. This term we are forming the board and audit committee together. No account needed — just fill in your details."))}</p>
+        <div class="cta-row" style="margin-top:22px;">
+          <span class="pill" style="color:var(--red);border-color:var(--red);font-weight:700;">${esc(fmt("SON BAŞVURU: 23 EKİM 2026 · 23:00", "DEADLINE: OCT 23, 2026 · 23:00"))}</span>
+          ${countdownHtml(DATA.announce[lang].deadline, "block")}
+        </div>
       </section>
+
+      <div class="app-stats">
+        <div class="app-stat">
+          <b>${total}</b>
+          <span>${esc(fmt("TOPLAM BAŞVURU", "TOTAL APPLICATIONS"))}</span>
+        </div>
+        <div class="app-stat">
+          <b>${boardCount}</b>
+          <span>${esc(fmt("YÖNETİM KURULU", "BOARD"))}</span>
+        </div>
+        <div class="app-stat">
+          <b>${auditCount}</b>
+          <span>${esc(fmt("DENETİM KURULU", "AUDIT"))}</span>
+        </div>
+        <div class="app-stat">
+          <b>18</b>
+          <span>${esc(fmt("TOPLAM KADRO", "TOTAL SEATS"))}</span>
+        </div>
+      </div>
 
       <div class="application-layout">
         <aside class="application-intro spotlight-card">
-          <h2 style="font:700 1.6rem var(--display);margin-bottom:12px;color:var(--fg);">${esc(fmt("Süreç Nasıl İlerliyor?", "How the Process Works"))}</h2>
-          <p style="color:var(--muted);font-size:13.5px;line-height:1.6;">${esc(fmt("Başvurular dönem başında değerlendirilir ve tüm adaylara e-posta ile dönüş yapılır.", "Submissions are reviewed at the start of each term with updates delivered via email."))}</p>
+          <h2 style="font:700 1.5rem var(--display);margin-bottom:12px;color:var(--fg);">${esc(fmt("Süreç Nasıl İlerliyor?", "How the Process Works"))}</h2>
+          <p style="color:var(--muted);font-size:13.5px;line-height:1.6;margin-bottom:16px;">${esc(fmt("Kulüp şu an resmî onay aşamasında. Onayın ardından yönetim ve denetim kurulu, bu başvurular arasından oluşturulacak.", "The club is currently in its official approval stage. Once approved, the board and audit committee will be formed from these applications."))}</p>
           <ul class="application-steps">
             <li>
               <span>01</span>
               <div>
-                <strong>${esc(fmt("Başvuru Türünü Seç", "Select Path"))}</strong>
-                <p>${esc(fmt("Genel üyelik veya yönetim kadrosu.", "General membership or board leadership."))}</p>
+                <strong>${esc(fmt("Pozisyonunu Seç", "Pick Your Seat"))}</strong>
+                <p>${esc(fmt("Yönetim kurulu (12) veya denetim kurulu (6).", "Board (12) or audit committee (6)."))}</p>
               </div>
             </li>
             <li>
               <span>02</span>
               <div>
-                <strong>${esc(fmt("Motivasyonunu Paylaş", "Share Motivation"))}</strong>
-                <p>${esc(fmt("Hangi disiplindensin, hangi soruya yanıt arıyorsun?", "What discipline are you from, what question drives you?"))}</p>
+                <strong>${esc(fmt("Kendini Anlat", "Introduce Yourself"))}</strong>
+                <p>${esc(fmt("Bölümün, ilgi alanın ve bu göreve neden talip olduğun.", "Your major, interests, and why you want this role."))}</p>
               </div>
             </li>
             <li>
               <span>03</span>
               <div>
-                <strong>${esc(fmt("Topluluğa Katıl", "Join the Hub"))}</strong>
-                <p>${esc(fmt("Çalışma grupları ve ilk atölye takvimi.", "Working groups and onboarding workshops."))}</p>
+                <strong>${esc(fmt("Onay ve Kuruluş", "Approval & Formation"))}</strong>
+                <p>${esc(fmt("23 Ekim sonrası değerlendirme, e-posta ile dönüş.", "Review after Oct 23, response by email."))}</p>
               </div>
             </li>
           </ul>
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
+            <p style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin-bottom:8px;">${esc(fmt("KADRO DAĞILIMI", "SEAT ALLOCATION"))}</p>
+            <div style="display:grid;gap:6px;font-size:12.5px;color:var(--muted);">
+              <div style="display:flex;justify-content:space-between;"><span>${esc(fmt("Yönetim Kurulu", "Board"))}</span><b style="color:var(--cyan);">12</b></div>
+              <div style="display:flex;justify-content:space-between;"><span>${esc(fmt("Denetim Kurulu", "Audit Committee"))}</span><b style="color:var(--cyan);">6</b></div>
+            </div>
+          </div>
         </aside>
 
         <form class="fm" id="applicationForm">
           <fieldset>
-            <legend>01 / ${esc(fmt("BAŞVURU TÜRÜ", "APPLICATION PATH"))}</legend>
+            <legend>01 / ${esc(fmt("BAŞVURU TÜRÜ", "APPLICATION TYPE"))}</legend>
             <div class="choice-list">
               <label class="choice">
-                <input type="radio" name="application_type" value="membership" ${defaultType === "membership" ? "checked" : ""}>
+                <input type="radio" name="application_type" value="board" ${defaultType !== "audit" ? "checked" : ""}>
                 <span>
-                  <strong style="display:block;font:700 15px var(--display);">${esc(fmt("Kulüp Üyeliği", "Club Membership"))}</strong>
-                  <small style="color:var(--muted);font-size:11px;">${esc(fmt("Atölye, proje ve etkinliklere katılım", "Access workshops, projects & events"))}</small>
+                  <strong style="display:block;font:700 15px var(--display);">${esc(fmt("Yönetim Kurulu", "Executive Board"))}</strong>
+                  <small style="color:var(--muted);font-size:11px;">${esc(fmt("12 kişi · yönlendirme, bütçe, organizasyon", "12 seats · direction, budget, organization"))}</small>
                 </span>
               </label>
               <label class="choice">
-                <input type="radio" name="application_type" value="board" ${defaultType === "board" ? "checked" : ""}>
+                <input type="radio" name="application_type" value="audit" ${defaultType === "audit" ? "checked" : ""}>
                 <span>
-                  <strong style="display:block;font:700 15px var(--display);">${esc(fmt("Yönetim Kadrosu", "Executive Board"))}</strong>
-                  <small style="color:var(--muted);font-size:11px;">${esc(fmt("Kulüp liderliği ve organizasyon", "Club leadership and organization"))}</small>
+                  <strong style="display:block;font:700 15px var(--display);">${esc(fmt("Denetim Kurulu", "Audit Committee"))}</strong>
+                  <small style="color:var(--muted);font-size:11px;">${esc(fmt("6 kişi · mali ve süreç denetimi", "6 seats · financial and process audit"))}</small>
                 </span>
               </label>
             </div>
@@ -1128,23 +1330,46 @@
                 <label for="appEmail">${esc(fmt("E-posta Adresi", "Email Address"))}</label>
                 <input id="appEmail" type="email" name="email" required placeholder="ornek@universite.edu.tr">
               </div>
+              <div class="field">
+                <label for="appPhone">${esc(fmt("Telefon (opsiyonel)", "Phone (optional)"))}</label>
+                <input id="appPhone" type="tel" name="phone" placeholder="+90 5xx xxx xx xx">
+              </div>
+              <div class="field">
+                <label for="appTc">${esc(fmt("T.C. Kimlik No", "National ID (TCKN)"))} *</label>
+                <input id="appTc" name="tc" required inputmode="numeric" maxlength="11" pattern="[1-9][0-9]{10}"
+                       placeholder="11 haneli" autocomplete="off">
+                <small class="field-hint" id="tcHint"></small>
+              </div>
+              <div class="field">
+                <label for="appBirth">${esc(fmt("Doğum Tarihi", "Date of Birth"))} *</label>
+                <input id="appBirth" type="date" name="birthdate" required min="1950-01-01" max="2012-12-31">
+              </div>
+              <div class="field">
+                <label for="appStudentNo">${esc(fmt("Öğrenci Numarası", "Student Number"))} *</label>
+                <input id="appStudentNo" name="student_no" required placeholder="${esc(fmt("Örn. 2026123456", "e.g. 2026123456"))}" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="appDepartment">${esc(fmt("Bölüm & Sınıf", "Major & Year"))} *</label>
+                <input id="appDepartment" name="department" required placeholder="${esc(fmt("Örn. TBMYO · Bilgisayar Programcılığı · 2. Sınıf", "e.g. Computer Programming · Year 2"))}">
+              </div>
               <div class="field full">
-                <label for="appDepartment">${esc(fmt("Üniversite & Bölüm & Sınıf", "University, Major & Year"))}</label>
-                <input id="appDepartment" name="department" required placeholder="${esc(fmt("Örn. Marmara Üniversitesi · Hukuk · 3. Sınıf", "e.g. University · Computer Science · Junior"))}">
+                <label for="appUniversity">${esc(fmt("Üniversite / Fakülte / Yüksekokul", "University / Faculty / School"))} *</label>
+                <input id="appUniversity" name="university" required placeholder="${esc(fmt("Örn. Marmara Üniversitesi · Teknik Bilimler MYO", "e.g. Marmara University · Vocational School"))}">
               </div>
             </div>
           </fieldset>
 
-          <fieldset id="memberSpecific">
-            <legend>03 / ${esc(fmt("İLGİ ALANLARI VE MOTİVASYON", "INTERESTS & MOTIVATION"))}</legend>
+          <fieldset>
+            <legend>03 / ${esc(fmt("MOTİVASYON", "MOTIVATION"))}</legend>
             <div class="field-grid">
               <div class="field full">
-                <label for="appInterests">${esc(fmt("İlgilendiğin Alanlar / Sorular", "Areas of Interest / Questions"))}</label>
-                <input id="appInterests" name="interests" placeholder="${esc(fmt("Örn. LLM'lerde telif, biyomedikal görüntüleme, RAG mimarileri", "e.g. LLM copyright, medical imaging, RAG"))}">
+                <label for="appMotivation">${esc(fmt("Bu göreve neden talipsin? (kısa)", "Why do you want this role? (short)"))}</label>
+                <textarea id="appMotivation" name="motivation" rows="4" required placeholder="${esc(fmt("Kulübe ne katmak istiyorsun, hangi deneyimin var?", "What will you bring, what experience do you have?"))}"></textarea>
               </div>
               <div class="field full">
-                <label for="appMotivation">${esc(fmt("Kısa Motivasyon Notun", "Brief Motivation Note"))}</label>
-                <textarea id="appMotivation" name="motivation" rows="4" placeholder="${esc(fmt("Kulüpte ne öğrenmek veya hangi projeyi üretmek istersin?", "What would you like to explore or build?"))}"></textarea>
+                <label for="appNote">${esc(fmt("Eklemek istediğin bir şey var mı? (opsiyonel)", "Anything else you'd like to add? (optional)"))}</label>
+                <textarea id="appNote" name="note" rows="4" placeholder="${esc(fmt("Bu pozisyon veya başvurun hakkında yazmak istediklerin — boş bırakabilirsin.", "Anything you want to say about this position or your application — you can leave it blank."))}"></textarea>
+                <small style="color:var(--dim);font-size:11px;margin-top:6px;display:block;">${esc(fmt("Bu alan tamamen opsiyoneldir.", "This field is entirely optional."))}</small>
               </div>
             </div>
           </fieldset>
@@ -1153,60 +1378,112 @@
             <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">${esc(DATA.formspree.privacyNotice)}</p>
             <label style="display:flex;align-items:center;gap:10px;font-size:12px;cursor:pointer;">
               <input type="checkbox" id="privacyAck" required style="accent-color:var(--cyan);">
-              <span>${esc(fmt("Gizlilik bildirimini okudum ve kabul ediyorum.", "I acknowledge and agree to the privacy statement."))}</span
+              <span>${esc(fmt("Gizlilik bildirimini okudum ve kabul ediyorum.", "I acknowledge and agree to the privacy statement."))}</span>
             </label>
           </div>
 
-          <button class="btn solid" type="submit" style="width:fit-content;">
-            ${esc(fmt("Başvuruyu Gönder", "Submit Application"))} ↗
+          <button class="btn solid" type="submit" style="width:fit-content;" ${closed ? "disabled" : ""}>
+            ${closed ? esc(fmt("Başvuru Kapandı", "Applications Closed")) : esc(fmt("Başvuruyu Gönder", "Submit Application"))} ↗
           </button>
           <p id="appStatus" role="status" aria-live="polite" style="font:600 13px var(--mono);min-height:24px;"></p>
         </form>
       </div>
     `;
 
+    // ── TCKN checksum (11 hane, resmî algoritma) ──
+    const tcEl = document.getElementById("appTc");
+    const tcHint = document.getElementById("tcHint");
+    function tcknValid(v) {
+      if (!/^[1-9][0-9]{10}$/.test(v)) return false;
+      const d = v.split("").map(Number);
+      const odd = d[0] + d[2] + d[4] + d[6] + d[8];
+      const even = d[1] + d[3] + d[5] + d[7];
+      if ((odd * 7 - even) % 10 !== d[9]) return false;
+      const sum10 = d.slice(0, 10).reduce((a, b) => a + b, 0);
+      return sum10 % 10 === d[10];
+    }
+    function renderTcHint() {
+      const v = tcEl.value.replace(/\D/g, "");
+      if (!v) { tcHint.textContent = ""; tcHint.className = "field-hint"; return; }
+      const ok = tcknValid(v);
+      tcHint.textContent = ok
+        ? fmt("✓ Geçerli", "✓ Valid")
+        : fmt("11 hane olmalı ve doğrulama tutmalı", "Must be 11 digits and pass the checksum");
+      tcHint.className = "field-hint " + (ok ? "ok" : "bad");
+    }
+    if (tcEl) {
+      tcEl.addEventListener("input", () => {
+        tcEl.value = tcEl.value.replace(/\D/g, "").slice(0, 11);
+        renderTcHint();
+      });
+      tcEl.addEventListener("blur", renderTcHint);
+    }
+
     const form = document.getElementById("applicationForm");
     const status = document.getElementById("appStatus");
 
     form.addEventListener("submit", async e => {
       e.preventDefault();
+      if (closed) return;
       const btn = form.querySelector('button[type="submit"]');
       btn.disabled = true;
       status.style.color = "var(--cyan)";
       status.textContent = fmt("Gönderiliyor…", "Transmitting…");
 
       const fd = new FormData(form);
+      if (!tcknValid(String(fd.get("tc") || ""))) {
+        status.style.color = "var(--red)";
+        status.textContent = fmt("T.C. kimlik numarası geçersiz. Lütfen kontrol edin.", "National ID is invalid. Please check it.");
+        if (tcEl) { tcEl.focus(); renderTcHint(); }
+        btn.disabled = false;
+        return;
+      }
+      if (!fd.get("birthdate") || !fd.get("student_no")) {
+        status.style.color = "var(--red)";
+        status.textContent = fmt("Doğum tarihi ve öğrenci numarası zorunlu.", "Date of birth and student number are required.");
+        btn.disabled = false;
+        return;
+      }
+      const appData = Object.fromEntries(fd.entries());
+      appData.submittedAt = new Date().toISOString();
+      appData.status = 'pending';
+      appData.id = 'app-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
 
-      // Always save locally so admin can review
       try {
-        const appData = Object.fromEntries(fd.entries());
-        appData.submittedAt = new Date().toISOString();
-        appData.status = 'pending';
         const existing = JSON.parse(localStorage.getItem('yzk-applications') || '[]');
         existing.push(appData);
         localStorage.setItem('yzk-applications', JSON.stringify(existing));
       } catch {}
 
+      // Broadcast so admin panel in another tab updates live
       try {
-        const res = await fetch(`https://formspree.io/f/${DATA.formspree.id}`, {
-          method: "POST",
-          headers: { Accept: "application/json" },
-          body: fd
-        });
-        if (!res.ok) throw new Error("Network error");
-        form.reset();
-        status.style.color = "var(--lime)";
-        status.textContent = fmt("Başvurunuz başarıyla iletildi! 48 saat içinde e-posta ile dönüş yapacağız.", "Application received! We'll get back to you within 48 hours.");
-      } catch (err) {
-        form.reset();
-        status.style.color = "var(--lime)";
-        status.textContent = fmt("Başvurunuz kaydedildi! Ekibimiz en kısa sürede size dönüş yapacak.", "Application saved! Our team will reach out to you shortly.");
-      } finally {
-        btn.disabled = false;
-      }
+        const ch = new BroadcastChannel('yzk-apps');
+        ch.postMessage({ type: 'new-application', app: appData });
+        ch.close();
+      } catch {}
+
+      // ponytail: no external service — application stays in localStorage on this device
+      // and reaches the admin panel via BroadcastChannel. Cross-device sync needs a backend.
+
+      form.reset();
+      status.style.color = "var(--lime)";
+      status.textContent = fmt("Başvurun alındı. 23 Ekim sonrası e-posta ile dönüş yapacağız.", "Application received. We'll respond by email after October 23.");
+      btn.disabled = false;
+
+      // refresh the live counters in place (keeps the success message visible)
+      try {
+        const all = JSON.parse(localStorage.getItem('yzk-applications') || '[]');
+        const nums = document.querySelectorAll('.app-stat b');
+        if (nums.length === 4) {
+          nums[0].textContent = all.length;
+          nums[1].textContent = all.filter(a => a.application_type === 'board').length;
+          nums[2].textContent = all.filter(a => a.application_type === 'audit').length;
+        }
+      } catch {}
     });
 
     attachSpotlights();
+    startCountdowns();
   }
 
   /* ---------- GÖRÜNÜM: YEREL TASLAK ÜRETİCİLERİ ---------- */
@@ -1452,7 +1729,7 @@
     document.getElementById('switchToLogin')?.addEventListener('click', () => showTab('login'));
 
     // Login submit
-    document.getElementById('loginFormEl')?.addEventListener('submit', e => {
+    document.getElementById('loginFormEl')?.addEventListener('submit', async e => {
       e.preventDefault();
       const email    = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
@@ -1464,18 +1741,30 @@
         errEl.textContent = fmt("Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.", "No account found with this email address.");
         return;
       }
-      // Simple password check (stored as-is; production would hash)
-      if (user.password !== password) {
+      // Password verification (PBKDF2; legacy plaintext auto-upgrades)
+      let ok = false;
+      if (user.pwHash && user.pwSalt) {
+        const { hash } = await hashPassword(password, user.pwSalt);
+        ok = hash === user.pwHash;
+      } else if (user.password) {
+        ok = user.password === password;
+        if (ok) {
+          const { hash, salt } = await hashPassword(password);
+          user.pwHash = hash; user.pwSalt = salt; delete user.password;
+          saveUsers(users);
+        }
+      }
+      if (!ok) {
         errEl.textContent = fmt("Parola hatalı. Lütfen tekrar deneyin.", "Incorrect password. Please try again.");
         return;
       }
-      setCurrentUser(user);
+      setCurrentUser({ id: user.id, name: user.name, email: user.email, dept: user.dept });
       updateNavForUser();
       location.hash = '#/';
     });
 
     // Register submit
-    document.getElementById('registerFormEl')?.addEventListener('submit', e => {
+    document.getElementById('registerFormEl')?.addEventListener('submit', async e => {
       e.preventDefault();
       const name     = document.getElementById('regName').value.trim();
       const email    = document.getElementById('regEmail').value.trim();
@@ -1488,15 +1777,33 @@
         errEl.textContent = fmt("Bu e-posta zaten kayıtlı.", "This email is already registered.");
         return;
       }
-      const newUser = { id: Date.now(), name, email, password, dept, createdAt: new Date().toISOString() };
+      const { hash, salt } = await hashPassword(password);
+      const newUser = { id: Date.now(), name, email, pwHash: hash, pwSalt: salt, dept, createdAt: new Date().toISOString() };
       users.push(newUser);
       saveUsers(users);
-      setCurrentUser(newUser);
+      setCurrentUser({ id: newUser.id, name, email, dept });
       updateNavForUser();
       location.hash = '#/';
     });
 
     attachSpotlights();
+  }
+
+
+  // ── Password hashing (PBKDF2-SHA256, 120k iter) ─────────
+  // ponytail: static site — hash only raises the cost of a stolen localStorage dump,
+  // it cannot stop a determined client-side attacker. Real auth needs a server.
+  const PBKDF2_ITER = 120000;
+  async function hashPassword(password, saltB64) {
+    const enc = new TextEncoder();
+    const salt = saltB64
+      ? Uint8Array.from(atob(saltB64), c => c.charCodeAt(0))
+      : crypto.getRandomValues(new Uint8Array(16));
+    const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: PBKDF2_ITER, hash: 'SHA-256' }, key, 256);
+    const hashB64 = btoa(String.fromCharCode(...new Uint8Array(bits)));
+    const saltOut = saltB64 || btoa(String.fromCharCode(...salt));
+    return { hash: hashB64, salt: saltOut };
   }
 
   // ── User auth helpers ──
@@ -1664,9 +1971,10 @@
     "/uyeler": renderUyeler,
     "/yonetim": renderYonetim,
     "/liderlik": renderLiderlik,
-    "/basvuru": () => renderApplication("membership"),
-    "/kayit": () => renderApplication("membership"),
+    "/basvuru": () => renderApplication("board"),
+    "/kayit": () => renderApplication("board"),
     "/yk-basvuru": () => renderApplication("board"),
+    "/denetim-basvuru": () => renderApplication("audit"),
     "/hakkimizda": renderHakkimizda,
     "/iletisim": renderIletisim,
     "/kvkk": renderKVKK,
@@ -1689,6 +1997,7 @@
 
     navActive();
     drawMarquee();
+    startCountdowns();
 
     if (scrollToTop) {
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1704,6 +2013,26 @@
 
     const yearEl = document.getElementById("year");
     if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+    // Tema Düğmesi
+    const themeBtn = document.getElementById("themeBtn");
+    if (themeBtn) {
+      const syncLabel = () => {
+        const t = document.documentElement.getAttribute("data-theme") || "dark";
+        themeBtn.setAttribute("aria-label", t === "light" ? fmt("Karanlık temaya geç", "Switch to dark theme") : fmt("Aydınlık temaya geç", "Switch to light theme"));
+        themeBtn.setAttribute("aria-pressed", t === "light" ? "true" : "false");
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", t === "light" ? "#F7F4ED" : "#0E0D0B");
+      };
+      syncLabel();
+      themeBtn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") || "dark";
+        const next = cur === "light" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("yzk-theme", next); } catch {}
+        syncLabel();
+      });
+    }
 
     // Dil Butonu
     const langBtn = document.getElementById("lang");
@@ -1771,6 +2100,16 @@
     applyLang();
     drawMarquee();
     router();
+
+    // Sistem teması değişimi (kullanıcı seçim yapmadıysa)
+    try {
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => {
+        if (localStorage.getItem('yzk-theme')) return;
+        document.documentElement.setAttribute('data-theme', e.matches ? 'light' : 'dark');
+        const btn = document.getElementById('themeBtn');
+        if (btn) btn.setAttribute('aria-pressed', e.matches ? 'true' : 'false');
+      });
+    } catch {}
 
     // Cookie notice bar
     if (!localStorage.getItem('yzk-notice-accepted')) {
