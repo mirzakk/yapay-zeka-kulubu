@@ -481,10 +481,16 @@
     $('#appsLockBar').hidden = unlocked;
 
     if (!unlocked) {
+      const syncOn = !!(window.YZKSync && YZKSync.enabled());
       tbody.innerHTML = `<tr><td colspan="7"><div class="admin-empty">
         <div class="admin-empty-icon">🔒</div>
-        <p><b>${sealedCount}</b> şifreli başvuru bekliyor.</p>
+        <p><b>${sealedCount}</b> şifreli başvuru bu cihazda.</p>
         <p style="font-size:12px;margin-top:6px;">Yukarıdan anahtar dosyasını ve parolasını gir; kayıtlar bu cihazda çözülür, hiçbir yere gönderilmez.</p>
+        <p style="font-size:12px;margin-top:8px;color:${syncOn ? 'var(--lime)' : 'var(--amber)'};">
+          ${syncOn
+            ? 'Ortak uç nokta açık: diğer cihazlardan gelen başvurular için “Sunucudan Çek”.'
+            : 'UYARI: senkron kapalı. Başka telefonlardan yapılan başvurular bu cihaza kendiliğinden gelmez — “Zarf İçe Aktar” ile gelen dosyaları ekle ya da sync.js ayarını yap.'}
+        </p>
       </div></td></tr>`;
       return;
     }
@@ -600,6 +606,25 @@
     URL.revokeObjectURL(url);
     showToast(apps.length + ' başvuru CSV olarak indirildi.', 'success');
   });
+
+  // ── Ortak uç nokta (varsa) ────────────────────────────────
+  async function pullFromServer(silent) {
+    if (!window.YZKSync || !YZKSync.enabled()) {
+      if (!silent) showToast('Senkron kapalı: sync.js içine url + key gir.', 'error');
+      return 0;
+    }
+    const res = await YZKSync.merge();
+    if (!res.ok) { if (!silent) showToast('Sunucuya ulaşılamadı: ' + res.reason, 'error'); return 0; }
+    if (res.added) {
+      if (isUnlocked()) await decryptAll();
+      renderApplications(); renderDashboard();
+      if (!silent) showToast(res.added + ' yeni başvuru alındı.', 'success');
+    } else if (!silent) {
+      showToast('Yeni başvuru yok (toplam ' + res.total + ').', 'success');
+    }
+    return res.added;
+  }
+  $('#pullBtn')?.addEventListener('click', () => pullFromServer(false));
 
   // ── Zarf içe aktarma (şifreli başvuru dosyaları) ─────────
   $('#importBtn')?.addEventListener('click', () => $('#importFiles').click());
@@ -1050,6 +1075,9 @@
     setupSearch('searchProjects', () => allProjects, renderProjectsTable);
     setupSearch('searchNews',     () => allNews,     renderNewsTable);
     setupSearch('searchMembers',  () => allMembers,  renderMembersTable);
+
+    // Açılışta ortak uç noktadan zarfları çek (varsa, sessiz)
+    try { await pullFromServer(true); } catch {}
 
     // Start dashboard
     await switchSection('dashboard');

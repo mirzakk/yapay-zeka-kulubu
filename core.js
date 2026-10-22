@@ -1488,8 +1488,15 @@
         ch.close();
       } catch {}
 
-      // Zarflı dosyayı indir: kullanıcı kulübe iletebilir, biz de anahtarla açarız.
-      // Dosya şifreli — e-posta/WhatsApp ile gönderilmesi güvenli.
+      // Ortak uç nokta varsa: zarfı oraya bırak (açık metin gitmez)
+      let sent = false;
+      if (window.YZKSync && YZKSync.enabled()) {
+        status.textContent = fmt("Gönderiliyor…", "Sending…");
+        const r = await YZKSync.push(sealed);
+        sent = r.ok;
+      }
+
+      // Yedek: şifreli dosyayı indir (uç nokta yoksa tek yol bu)
       try {
         const blob = new Blob([JSON.stringify(sealed)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1505,7 +1512,9 @@
 
       form.reset();
       status.style.color = "var(--lime)";
-      status.textContent = fmt("Başvurun alındı ve şifrelendi. İndirilen yzk-basvuru-….json dosyasını kulübe iletmen yeterli — içeriği yalnızca kulüp anahtarıyla açılabilir.", "Application received and encrypted. Send the downloaded yzk-basvuru-….json file to the club — only the club key can open it.");
+      status.textContent = sent
+        ? fmt("Başvurun kulübe iletildi ve şifrelendi. Değerlendirme sonrası e-posta ile dönüş yapılacak.", "Your application reached the club, encrypted. We'll reply by email after review.")
+        : fmt("Başvurun alındı ve şifrelendi. İndirilen yzk-basvuru-….json dosyasını kulübe iletmen yeterli — içeriği yalnızca kulüp anahtarıyla açılabilir.", "Application received and encrypted. Send the downloaded yzk-basvuru-….json file to the club — only the club key can open it.");
       btn.disabled = false;
 
       // refresh the live counters in place (keeps the success message visible)

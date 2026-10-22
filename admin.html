@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests"><meta name="referrer" content="strict-origin-when-cross-origin"><meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co; form-action 'self'; base-uri 'none'; object-src 'none'; upgrade-insecure-requests"><meta name="referrer" content="strict-origin-when-cross-origin"><meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="robots" content="noindex,nofollow">
   <title>YZK — Yönetim Paneli</title>
@@ -276,6 +276,7 @@
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <input type="search" class="admin-search" id="searchApps" placeholder="Ad, e-posta, bölüm ara…">
               <input type="file" id="importFiles" accept="application/json,.json" multiple hidden>
+              <button class="btn sm" id="pullBtn" type="button" title="Ortak uç noktadan zarfları çek">Sunucudan Çek ⟳</button>
               <button class="btn sm" id="importBtn" type="button">Zarf İçe Aktar ↑</button>
               <button class="btn sm" id="exportCsvBtn" type="button">CSV İndir ↓</button>
             </div>
@@ -433,6 +434,7 @@
 </div>
 
 <script src="./secure.js"></script>
+<script src="./sync.js"></script>
 <script src="./data.js"></script>
 <script src="./admin.js"></script>
 </body>
