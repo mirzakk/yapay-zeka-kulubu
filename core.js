@@ -1468,7 +1468,7 @@
       // Özel anahtar sitede yok → depoyu ele geçiren veriyi okuyamaz.
       let sealed;
       try {
-        sealed = await YZKSecure.seal(appData, type);
+        sealed = await YZKSecure.sealTo(await YZKSecure.activePub(), appData, type);
       } catch (err) {
         status.style.color = "var(--red)";
         status.textContent = fmt("Şifreleme başarısız. Tarayıcın WebCrypto desteklemiyor olabilir.", "Encryption failed. Your browser may not support WebCrypto.");
@@ -1496,17 +1496,6 @@
         sent = r.ok;
       }
 
-      // Yedek: şifreli dosyayı indir (uç nokta yoksa tek yol bu)
-      try {
-        const blob = new Blob([JSON.stringify(sealed)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'yzk-basvuru-' + appData.id + '.json';
-        document.body.appendChild(link); link.click(); link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-      } catch {}
-
       // ponytail: sunucusuz site — kayıt bu cihazda şifreli durur. Çok cihazlı
       // toplama için sunucu/Formspree gerekir; anahtar dosyası olmadan okunamaz.
 
@@ -1514,7 +1503,7 @@
       status.style.color = "var(--lime)";
       status.textContent = sent
         ? fmt("Başvurun kulübe iletildi ve şifrelendi. Değerlendirme sonrası e-posta ile dönüş yapılacak.", "Your application reached the club, encrypted. We'll reply by email after review.")
-        : fmt("Başvurun alındı ve şifrelendi. İndirilen yzk-basvuru-….json dosyasını kulübe iletmen yeterli — içeriği yalnızca kulüp anahtarıyla açılabilir.", "Application received and encrypted. Send the downloaded yzk-basvuru-….json file to the club — only the club key can open it.");
+        : fmt("Başvurun şifrelendi ancak kulübe iletilemedi (bağlantı). Lütfen tekrar dene.", "Your application was encrypted but could not be delivered. Please try again.");
       btn.disabled = false;
 
       // refresh the live counters in place (keeps the success message visible)

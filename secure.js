@@ -36,6 +36,43 @@
     return pubP;
   }
 
+  /* Verilen açık anahtarla (b64 SPKI) şifrele — kasa kurulumundan sonra kullanılır */
+  async function sealTo(pubB64, obj, type) {
+    var key = await crypto.subtle.importKey(
+      "spki", b64.dec(pubB64), { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]
+    );
+    var aes = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+    var raw = await crypto.subtle.exportKey("raw", aes);
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, aes, new TextEncoder().encode(JSON.stringify(obj)));
+    var ck = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, key, raw);
+    return {
+      v: 1,
+      t: type === "audit" ? "a" : type === "board" ? "b" : "m",
+      iv: b64.enc(iv), ck: b64.enc(ck), ct: b64.enc(ct)
+    };
+  }
+
+  /* Aktif açık anahtar: sunucudaki /config.pub → yoksa gömülü anahtar */
+  var _pubCache;
+  async function activePub() {
+    if (_pubCache) return _pubCache;
+    try {
+      var cached = localStorage.getItem("yzk-pub");
+      if (cached && cached.length > 100) { _pubCache = cached; return cached; }
+    } catch (e) {}
+    try {
+      var cfg = window.YZKSync && YZKSync.configGet ? await YZKSync.configGet() : null;
+      if (cfg && cfg.pub && cfg.pub.length > 100) {
+        _pubCache = cfg.pub;
+        try { localStorage.setItem("yzk-pub", cfg.pub); } catch (e2) {}
+        return cfg.pub;
+      }
+    } catch (e3) {}
+    _pubCache = PUB;
+    return PUB;
+  }
+
   /* Açık anahtar → kimse okuyamaz. Her çağrıda taze AES anahtarı. */
   async function seal(obj, type) {
     var key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
@@ -198,10 +235,81 @@
     } catch (e) { return null; }
   }
 
+  /* ── Cihaz anahtarı: bir kez çözülen özel anahtar IDB'de tutulur ──
+     extractable:false → ham bayt dışarı çıkamaz; aynı tarayıcıda tekrar
+     şifre sormadan panel açılır. "Çıkış" bu kaydı siler. */
+  async function saveDeviceKey(key) {
+    var db = await new Promise(function (res, rej) {
+      var r = indexedDB.open("yzk-secure", 1);
+      r.onupgradeneeded = function () {
+        var d = r.result;
+        if (!d.objectStoreNames.contains("keys")) d.createObjectStore("keys");
+      };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+    });
+    await new Promise(function (res, rej) {
+      var q = db.transaction("keys", "readwrite").objectStore("keys").put(key, "private");
+      q.onsuccess = function () { res(); };
+      q.onerror = function () { rej(q.error); };
+    });
+  }
+
+  async function loadDeviceKey() {
+    try {
+      var db = await new Promise(function (res, rej) {
+        var r = indexedDB.open("yzk-secure", 1);
+        r.onupgradeneeded = function () {
+          var d = r.result;
+          if (!d.objectStoreNames.contains("keys")) d.createObjectStore("keys");
+        };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      });
+      var k = await new Promise(function (res, rej) {
+        var q = db.transaction("keys", "readonly").objectStore("keys").get("private");
+        q.onsuccess = function () { res(q.result); };
+        q.onerror = function () { rej(q.error); };
+      });
+      return (k && k.type === "private") ? k : null;
+    } catch (e) { return null; }
+  }
+
+  async function clearDeviceKey() {
+    try {
+      var db = await new Promise(function (res, rej) {
+        var r = indexedDB.open("yzk-secure", 1);
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      });
+      await new Promise(function (res) {
+        var q = db.transaction("keys", "readwrite").objectStore("keys").delete("private");
+        q.onsuccess = function () { res(); };
+        q.onerror = function () { res(); };
+      });
+      _pubCache = undefined;
+      try { localStorage.removeItem("yzk-pub"); } catch (e) {}
+    } catch (e) {}
+  }
+
+  /* Yeni anahtar çifti: pub (b64 SPKI) + pkcs8 (kasaya sarılacak) + kullanılabilir anahtar */
+  async function generateKeypair() {
+    var pair = await crypto.subtle.generateKey(
+      { name: "RSA-OAEP", modulusLength: 3072, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true, ["encrypt", "decrypt"]
+    );
+    var pub = await crypto.subtle.exportKey("spki", pair.publicKey);
+    var pkcs8 = await crypto.subtle.exportKey("pkcs8", pair.privateKey);
+    var usable = await crypto.subtle.importKey("pkcs8", pkcs8, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"]);
+    return { pubB64: b64.enc(pub), pkcs8: pkcs8, key: usable };
+  }
+
   global.YZKSecure = {
     seal: seal, open: open, unwrapKeyFile: unwrapKeyFile,
     sealLocal: sealLocal, openLocal: openLocal,
     unwrapKeyFileRaw: unwrapKeyFileRaw, makeVault: makeVault, openVault: openVault,
+    sealTo: sealTo, activePub: activePub, generateKeypair: generateKeypair,
+    saveDeviceKey: saveDeviceKey, loadDeviceKey: loadDeviceKey, clearDeviceKey: clearDeviceKey,
     clean: clean, cleanMultiline: cleanMultiline,
     isBox: isBox, safeHref: safeHref,
     b64: b64, PUBLIC_KEY: PUB

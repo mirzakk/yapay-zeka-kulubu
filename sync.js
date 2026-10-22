@@ -158,6 +158,34 @@
     }
   }
 
+  /* ── /config: açık anahtar + kasa ─────────────────────────────────────
+     { pub: "<b64 SPKI>", vault: {...} } — herkese açık okunur, parolasız açılmaz. */
+  function configUrl() {
+    if (CFG.provider !== "rtdb") return "";
+    return CFG.rtdb.url.replace(/\/+$/, "") + "/config.json";
+  }
+
+  async function configGet() {
+    var u = configUrl();
+    if (!u) return null;
+    try {
+      var r = await fetch(u, { cache: "no-store" });
+      if (!r.ok) return null;
+      var v = await r.json();
+      return v && typeof v === "object" ? v : null;
+    } catch (e) { return null; }
+  }
+
+  /* Kısmi yazma: yalnızca verilen alanlar güncellenir */
+  async function configPatch(obj) {
+    var u = configUrl();
+    if (!u) return { ok: false, reason: "provider" };
+    try {
+      var r = await fetch(u, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) });
+      return { ok: r.ok, reason: r.ok ? "" : "http " + r.status };
+    } catch (e) { return { ok: false, reason: "network" }; }
+  }
+
   /* ── Kasa (özel anahtar, yönetici parolasıyla sarılı) ────────────────
      RTDB: /config/vault.json — herkese açık okunabilir, parolasız açılamaz. */
   function vaultUrl() {
@@ -238,5 +266,5 @@
     return { ok: true, added: added, total: local.length };
   }
 
-  global.YZKSync = { enabled: enabled, push: push, pull: pull, merge: merge, vaultGet: vaultGet, vaultPut: vaultPut, config: CFG };
+  global.YZKSync = { enabled: enabled, push: push, pull: pull, merge: merge, vaultGet: vaultGet, vaultPut: vaultPut, configGet: configGet, configPatch: configPatch, config: CFG };
 })(window);

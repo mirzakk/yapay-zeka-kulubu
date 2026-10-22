@@ -35,7 +35,7 @@
     </button>
     <form class="admin-login-form" id="loginForm">
       <div class="admin-field">
-        <label for="adminPass">YÖNETİCİ PAROLASI</label>
+        <label for="adminPass" id="loginHint">YÖNETİCİ PAROLASI</label>
         <input type="password" id="adminPass" placeholder="Parola girin…" autocomplete="current-password" autofocus>
       </div>
       <div class="login-error" id="loginError">Parola hatalı. Lütfen tekrar deneyin.</div>
@@ -231,17 +231,7 @@
         <div id="appsLockBar" class="admin-lockbar" hidden>
           <div class="admin-lockbar-text">
             <b id="lockTitle">Başvuruları aç</b>
-            <p id="lockDesc"></p>
-          </div>
-
-          <!-- Tek seferlik kurulum: anahtar dosyası + dosya parolası + yeni yönetici parolası -->
-          <div class="admin-lockbar-actions" id="lockSetup" hidden>
-            <input type="file" id="keyFile" accept="application/json,.json" hidden>
-            <button class="btn sm" id="keyFileBtn" type="button">Anahtar dosyası seç</button>
-            <span id="keyFileName" class="admin-lockfile">dosya seçilmedi</span>
-            <input type="password" id="keyFilePass" class="admin-lockpass" placeholder="Dosya parolası" autocomplete="off">
-            <input type="password" id="newAdminPass" class="admin-lockpass" placeholder="Yönetici parolası (en az 12)" autocomplete="new-password" minlength="12">
-            <button class="btn sm primary" id="setupVaultBtn" type="button">Kaydet ve Aç</button>
+            <p id="lockDesc">Yönetici parolanı gir; kayıtlar bu cihazda çözülür. Parola sunucuda saklanmaz.</p>
           </div>
 
           <!-- Kurulum sonrası: yalnızca parola -->
@@ -281,9 +271,7 @@
             <h2>Başvurular</h2>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <input type="search" class="admin-search" id="searchApps" placeholder="Ad, e-posta, bölüm ara…">
-              <input type="file" id="importFiles" accept="application/json,.json" multiple hidden>
               <button class="btn sm" id="pullBtn" type="button" title="Ortak uç noktadan zarfları çek">Sunucudan Çek ⟳</button>
-              <button class="btn sm" id="importBtn" type="button">Zarf İçe Aktar ↑</button>
               <button class="btn sm" id="exportCsvBtn" type="button">CSV İndir ↓</button>
             </div>
           </div>
