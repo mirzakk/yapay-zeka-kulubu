@@ -140,8 +140,14 @@
         var r3 = await fetch(rtdbUrl());
         if (!r3.ok) return { ok: false, reason: "http " + r3.status, rows: [] };
         var obj = await r3.json();
-        var vals = obj && typeof obj === "object" ? Object.keys(obj).map(function (k) { return obj[k]; }) : [];
-        return { ok: true, rows: vals.filter(function (x) { return x && x.ct; }) };
+        if (!obj || typeof obj !== "object") return { ok: true, rows: [] };
+        var vals = Object.keys(obj).map(function (k) {
+          var v = obj[k];
+          if (!v || typeof v !== "object") return null;
+          v._key = k;
+          return v;
+        }).filter(Boolean);
+        return { ok: true, rows: vals };
       }
       var r2 = await fetch(fbUrl() + "&pageSize=" + n);
       if (!r2.ok) return { ok: false, reason: "http " + r2.status, rows: [] };
@@ -241,6 +247,21 @@
     return configPatch({ vault: vault });
   }
 
+  /* Karar (onay/red) bir OLAY olarak yazılır: {k:"status", ref, s, at}
+     Mevcut kayıt değiştirilmez → silme/güncelleme izni gerekmez, denetim izi kalır. */
+  async function setStatus(ref, status) {
+    if (!enabled() || CFG.provider !== "rtdb") return { ok: false, reason: "off" };
+    if (!ref) return { ok: false, reason: "ref" };
+    try {
+      var r = await fetch(appsUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ k: "status", ref: ref, s: status, at: Date.now() })
+      });
+      return { ok: r.ok, reason: r.ok ? "" : "http " + r.status };
+    } catch (e) { return { ok: false, reason: "network" }; }
+  }
+
   /* Sunucu tek doğru kaynaktır:
      - sunucuda olan kayıtlar aynen alınır
      - yerelde olup sunucuda olmayan kayıt SİLİNİR (bayat kopya)
@@ -253,11 +274,22 @@
     try { local = JSON.parse(localStorage.getItem("yzk-applications") || "[]"); } catch (e) {}
     local = (Array.isArray(local) ? local : []).filter(function (b) { return b && b.v === 1 && b.ct && b.ck && b.iv; });
 
-    var remote = {}, rows = p.rows || [];
+    var remote = {}, rows = p.rows || [], status = {};
     rows.forEach(function (r) {
-      if (!r || r.k === "vault" || r.k === "pub" || r.v === 0) return;
+      if (!r) return;
+      if (r.k === "status") {                       // karar olayı
+        var cur = status[r.ref];
+        if (!cur || (r.at || 0) >= (cur.at || 0)) status[r.ref] = r;
+        return;
+      }
+      if (r.k === "vault" || r.k === "pub" || r.v === 0) return;
       if (!r.ct || !r.ck || !r.iv) return;
-      remote[r.ct] = { v: 1, t: r.t || "m", iv: r.iv, ck: r.ck, ct: r.ct };
+      remote[r.ct] = { v: 1, t: r.t || "m", iv: r.iv, ck: r.ck, ct: r.ct, _key: r._key || "" };
+    });
+    Object.keys(remote).forEach(function (ct) {
+      var b = remote[ct];
+      var ev = b._key ? status[b._key] : null;
+      if (ev) { b.status = ev.s; b.decidedAt = ev.at; }
     });
 
     var keep = [], pruned = 0;
@@ -289,5 +321,5 @@
     return sent;
   }
 
-  global.YZKSync = { enabled: enabled, push: push, pull: pull, merge: merge, flushQueue: flushQueue, appsUrl: appsUrl, vaultGet: vaultGet, vaultPut: vaultPut, configGet: configGet, configPatch: configPatch, config: CFG };
+  global.YZKSync = { enabled: enabled, push: push, pull: pull, merge: merge, setStatus: setStatus, flushQueue: flushQueue, appsUrl: appsUrl, vaultGet: vaultGet, vaultPut: vaultPut, configGet: configGet, configPatch: configPatch, config: CFG };
 })(window);

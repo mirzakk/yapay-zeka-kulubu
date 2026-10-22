@@ -176,7 +176,12 @@
     const out = [];
     failedCount = 0;
     for (const b of rawApps()) {
-      try { out.push(await YZKSecure.open(appKey, b)); } catch { failedCount++; }
+      try {
+        const a = await YZKSecure.open(appKey, b);
+        a._key = b._key || '';
+        if (b.status) { a.status = b.status; a.decidedAt = b.decidedAt || null; }
+        out.push(a);
+      } catch { failedCount++; }
     }
     plainApps = out;
     return out.length;
@@ -577,12 +582,26 @@
   async function setAppStatus(id, status, msg, kind) {
     if (!isUnlocked()) { showToast('Önce yönetici parolası ile kilidi aç.', 'error'); return; }
     const apps = getApplications();
-    const a = apps.find(x => x.id === id);
+    const a = apps.find(x => x.id === id || x._key === id);
     if (!a) return;
+
+    // 1) Sunucuya karar olayı yaz (paylaşılan, kalıcı)
+    let synced = false;
+    if (a._key && window.YZKSync && YZKSync.setStatus) {
+      const r = await YZKSync.setStatus(a._key, status);
+      synced = r.ok;
+      if (!r.ok) { showToast('Sunucuya yazılamadı (' + r.reason + '). Karar yalnızca bu cihazda.', 'error'); }
+    }
+
+    // 2) Yerel görünümü güncelle
     a.status = status;
-    a.decidedAt = new Date().toISOString();
-    try { await persistApplications(apps); } catch { showToast('Kayıt yazılamadı.', 'error'); return; }
-    renderApplications(); renderDashboard(); showToast(msg, kind);
+    a.decidedAt = Date.now();
+    const boxes = rawApps();
+    const b = boxes.find(x => x.ct && a.ct === x.ct) || boxes.find(x => x._key && x._key === a._key);
+    if (b) { b.status = status; b.decidedAt = a.decidedAt; localStorage.setItem('yzk-applications', JSON.stringify(boxes)); }
+
+    renderApplications(); renderDashboard();
+    if (synced) showToast(msg, kind);
   }
 
   // ── CSV export ───────────────────────────────────────────
